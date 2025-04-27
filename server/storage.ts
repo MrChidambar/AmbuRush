@@ -41,7 +41,7 @@ export interface IStorage {
   addBookingStatusUpdate(update: InsertBookingStatusUpdate): Promise<BookingStatusUpdate>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 }
 
 export class MemStorage implements IStorage {
@@ -57,7 +57,7 @@ export class MemStorage implements IStorage {
   private ambulanceIdCounter: number;
   private bookingIdCounter: number;
   private bookingStatusUpdateIdCounter: number;
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 
   constructor() {
     this.users = new Map();
@@ -416,4 +416,7 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { DatabaseStorage } from "./database-storage";
+
+// Use DatabaseStorage for persistent database storage
+export const storage = new DatabaseStorage();
