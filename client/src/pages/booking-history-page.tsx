@@ -29,7 +29,11 @@ export default function BookingHistoryPage() {
     if (activeTab === "completed") return booking.status === "completed";
     if (activeTab === "cancelled") return booking.status === "cancelled";
     return true;
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }).sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateB - dateA;
+  });
 
   const cancelBooking = async (bookingId: number) => {
     try {
@@ -71,8 +75,9 @@ export default function BookingHistoryPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateString: string | Date | null) => {
+    if (!dateString) return "N/A";
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
@@ -165,7 +170,7 @@ export default function BookingHistoryPage() {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <p className="text-sm text-gray-500 dark:text-gray-400">Ambulance Type</p>
-                              <p className="font-medium">{booking.ambulanceType || "Standard"}</p>
+                              <p className="font-medium">{booking.ambulanceTypeId ? `Type ${booking.ambulanceTypeId}` : "Standard"}</p>
                             </div>
                             
                             {booking.scheduledTime && (
@@ -196,7 +201,7 @@ export default function BookingHistoryPage() {
                                   {Array(5).fill(0).map((_, i) => (
                                     <svg 
                                       key={i}
-                                      className={`h-4 w-4 ${i < booking.rating ? "text-yellow-400 fill-current" : "text-gray-300 dark:text-gray-600"}`}
+                                      className={`h-4 w-4 ${i < (booking.rating || 0) ? "text-yellow-400 fill-current" : "text-gray-300 dark:text-gray-600"}`}
                                       xmlns="http://www.w3.org/2000/svg" 
                                       viewBox="0 0 24 24"
                                     >

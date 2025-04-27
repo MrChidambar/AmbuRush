@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Separator } from "@/components/ui/separator";
 import { 
   Ambulance, Heart, Baby, Building2, Brain, PawPrint, Calendar, 
-  AlertTriangle, Clock, CheckCircle, DollarSign, Phone 
+  AlertTriangle, Clock, CheckCircle, DollarSign, Phone, Mail
 } from "lucide-react";
 
 export default function ServicesPage() {
