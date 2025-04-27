@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 20 14.3% 4.1%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 25 5.3% 44.7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14.3% 4.1%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14.3% 4.1%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 0 84.2% 60.2%; /* Red for emergency theme */
+  --primary-foreground: 0 0% 98%;
+  --secondary: 217 91.2% 59.8%; /* Blue for medical theme */
+  --secondary-foreground: 210 40% 96.1%;
+  --accent: 60 4.8% 95.9%;
+  --accent-foreground: 24 9.8% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --ring: 20 14.3% 4.1%;
+  --radius: 0.5rem;
+  --chart-1: 0 84.2% 60.2%;
+  --chart-2: 217 91.2% 59.8%;
+  --chart-3: 48 96.5% 53.3%;
+  --chart-4: 142 71.8% 45.2%;
+  --chart-5: 283 39.3% 45.2%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 20 14.3% 4.1%;
+  --sidebar-primary: 0 84.2% 60.2%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 217 91.2% 59.8%;
+  --sidebar-accent-foreground: 210 40% 96.1%;
+  --sidebar-border: 20 5.9% 90%;
+  --sidebar-ring: 20 14.3% 4.1%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 0 73.7% 61.8%; /* Red for emergency theme - darker */
+  --primary-foreground: 0 0% 98%;
+  --secondary: 217 91.2% 49.8%; /* Blue for medical theme - darker */
+  --secondary-foreground: 210 40% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+  --chart-1: 0 73.7% 61.8%;
+  --chart-2: 217 91.2% 49.8%;
+  --chart-3: 48 96.5% 50%;
+  --chart-4: 142 71.8% 40%;
+  --chart-5: 283 39.3% 40%;
+  --sidebar-background: 230 14% 10%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 0 73.7% 61.8%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 217 91.2% 49.8%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 240 4.9% 83.9%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}

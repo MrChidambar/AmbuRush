@@ -1,0 +1,397 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { setupAuth } from "./auth";
+import { ambulanceTypes, hospitals, insertBookingSchema, patientDetailsSchema, emergencyContactSchema } from "@shared/schema";
+import { z } from "zod";
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication routes
+  setupAuth(app);
+
+  // Seed initial data
+  await seedInitialData();
+
+  // API routes
+  app.get("/api/ambulance-types", async (req, res) => {
+    try {
+      const types = await storage.getAmbulanceTypes();
+      res.json(types);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch ambulance types" });
+    }
+  });
+
+  app.get("/api/hospitals", async (req, res) => {
+    try {
+      const allHospitals = await storage.getHospitals();
+      res.json(allHospitals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch hospitals" });
+    }
+  });
+
+  app.get("/api/nearby-ambulances", (req, res) => {
+    const latitude = parseFloat(req.query.latitude as string);
+    const longitude = parseFloat(req.query.longitude as string);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({ message: "Invalid latitude or longitude" });
+    }
+    
+    try {
+      const nearbyAmbulances = storage.getNearbyAmbulances(latitude, longitude);
+      res.json(nearbyAmbulances);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch nearby ambulances" });
+    }
+  });
+
+  // Secure routes - require authentication
+  app.post("/api/secure/bookings", async (req, res) => {
+    try {
+      // Validate booking data
+      const bookingData = insertBookingSchema.parse(req.body);
+      
+      // Validate patient details
+      const patientDetails = patientDetailsSchema.parse(bookingData.patientDetails);
+      
+      // Validate emergency contact if provided
+      if (bookingData.emergencyContact) {
+        emergencyContactSchema.parse(bookingData.emergencyContact);
+      }
+      
+      // Add user ID from authenticated user
+      const booking = await storage.createBooking({
+        ...bookingData,
+        userId: req.user!.id,
+      });
+      
+      res.status(201).json(booking);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid booking data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  app.get("/api/secure/bookings", async (req, res) => {
+    try {
+      const bookings = await storage.getBookingsByUserId(req.user!.id);
+      res.json(bookings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  app.get("/api/secure/bookings/:id", async (req, res) => {
+    try {
+      const booking = await storage.getBookingById(parseInt(req.params.id));
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Check if user is authorized to access this booking
+      if (booking.userId !== req.user!.id && req.user!.role !== "admin" && req.user!.role !== "driver") {
+        return res.status(403).json({ message: "Unauthorized to access this booking" });
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
+  app.get("/api/secure/bookings/:id/status-updates", async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Check if user is authorized to access this booking
+      if (booking.userId !== req.user!.id && req.user!.role !== "admin" && req.user!.role !== "driver") {
+        return res.status(403).json({ message: "Unauthorized to access this booking" });
+      }
+      
+      const statusUpdates = await storage.getBookingStatusUpdates(bookingId);
+      res.json(statusUpdates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch booking status updates" });
+    }
+  });
+
+  app.post("/api/secure/bookings/:id/cancel", async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Check if user is authorized to cancel this booking
+      if (booking.userId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized to cancel this booking" });
+      }
+      
+      // Check if booking can be cancelled
+      if (["completed", "cancelled"].includes(booking.status)) {
+        return res.status(400).json({ message: `Booking cannot be cancelled in ${booking.status} state` });
+      }
+      
+      const updatedBooking = await storage.updateBookingStatus(bookingId, "cancelled");
+      res.json(updatedBooking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
+
+  app.post("/api/driver/updateLocation", async (req, res) => {
+    try {
+      const { latitude, longitude } = req.body;
+      
+      if (!latitude || !longitude) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+      }
+      
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user!.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Update ambulance location
+      const updatedAmbulance = await storage.updateAmbulanceLocation(ambulance.id, latitude, longitude);
+      
+      // If ambulance is assigned to a booking, update the ETA
+      if (ambulance.status === "assigned") {
+        // Find active booking for this ambulance
+        const activeBooking = await storage.getActiveBookingByAmbulanceId(ambulance.id);
+        
+        if (activeBooking) {
+          // Calculate ETA (simplified version - in a real app this would use distance/traffic info)
+          const distanceToPickup = calculateDistance(
+            latitude, 
+            longitude, 
+            activeBooking.pickupLatitude, 
+            activeBooking.pickupLongitude
+          );
+          
+          const etaInSeconds = Math.round(distanceToPickup * 60); // Simple estimation
+          
+          // Add status update
+          await storage.addBookingStatusUpdate({
+            bookingId: activeBooking.id,
+            status: activeBooking.status,
+            latitude,
+            longitude,
+            eta: etaInSeconds,
+            message: `Driver is ${Math.round(distanceToPickup * 10) / 10} km away`,
+          });
+        }
+      }
+      
+      res.json(updatedAmbulance);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  app.post("/api/driver/updateBookingStatus", async (req, res) => {
+    try {
+      const { bookingId, status, latitude, longitude, message } = req.body;
+      
+      if (!bookingId || !status) {
+        return res.status(400).json({ message: "Booking ID and status are required" });
+      }
+      
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user!.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Ensure the driver is assigned to this booking
+      if (booking.ambulanceId !== ambulance.id) {
+        return res.status(403).json({ message: "Driver not assigned to this booking" });
+      }
+      
+      // Update booking status
+      const updatedBooking = await storage.updateBookingStatus(bookingId, status);
+      
+      // Add status update
+      await storage.addBookingStatusUpdate({
+        bookingId,
+        status,
+        latitude,
+        longitude,
+        message,
+      });
+      
+      res.json(updatedBooking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update booking status" });
+    }
+  });
+
+  const httpServer = createServer(app);
+
+  return httpServer;
+}
+
+// Helper function to calculate distance between two points (in km)
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const distance = R * c; // Distance in km
+  return distance;
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI/180);
+}
+
+// Seed initial data for ambulance types and hospitals
+async function seedInitialData() {
+  // Seed ambulance types
+  const ambulanceTypesData = [
+    {
+      name: "Basic Life Support",
+      description: "For non-critical transport with basic medical care",
+      basePrice: 50,
+      pricePerKm: 2,
+      icon: "ambulance"
+    },
+    {
+      name: "Advanced Life Support",
+      description: "For critical patients requiring advanced care",
+      basePrice: 150,
+      pricePerKm: 3,
+      icon: "heartbeat"
+    },
+    {
+      name: "Neonatal",
+      description: "Specialized transport for newborns",
+      basePrice: 200,
+      pricePerKm: 3.5,
+      icon: "baby"
+    },
+    {
+      name: "ICU on Wheels",
+      description: "Mobile intensive care unit for critical patients",
+      basePrice: 300,
+      pricePerKm: 4,
+      icon: "hospital"
+    },
+    {
+      name: "Mental Health",
+      description: "Specialized transport with mental health professionals",
+      basePrice: 150,
+      pricePerKm: 2.5,
+      icon: "brain"
+    },
+    {
+      name: "Pet Ambulance",
+      description: "Emergency transport for pets",
+      basePrice: 100,
+      pricePerKm: 2,
+      icon: "paw"
+    }
+  ];
+
+  // Only seed if no ambulance types exist
+  const existingTypes = await storage.getAmbulanceTypes();
+  if (existingTypes.length === 0) {
+    for (const type of ambulanceTypesData) {
+      await storage.createAmbulanceType(type);
+    }
+  }
+
+  // Seed hospitals
+  const hospitalsData = [
+    {
+      name: "City General Hospital",
+      address: "123 Main St, Cityville",
+      latitude: 40.7128,
+      longitude: -74.0060,
+      specialties: ["Emergency", "Trauma", "Cardiac"]
+    },
+    {
+      name: "Mercy Medical Center",
+      address: "456 Oak Ave, Townsville",
+      latitude: 40.7138,
+      longitude: -74.0070,
+      specialties: ["Pediatric", "Emergency", "Neurology"]
+    },
+    {
+      name: "St. Luke's Hospital",
+      address: "789 Pine Rd, Villagetown",
+      latitude: 40.7148,
+      longitude: -74.0080,
+      specialties: ["Cardiac", "Orthopedic", "Emergency"]
+    }
+  ];
+
+  // Only seed if no hospitals exist
+  const existingHospitals = await storage.getHospitals();
+  if (existingHospitals.length === 0) {
+    for (const hospital of hospitalsData) {
+      await storage.createHospital(hospital);
+    }
+  }
+
+  // Seed available ambulances
+  const ambulancesData = [
+    {
+      registrationNumber: "MH-01-AB-1234",
+      typeId: 1,
+      status: "available",
+      latitude: 40.7138,
+      longitude: -74.0065,
+      driverId: null
+    },
+    {
+      registrationNumber: "MH-01-CD-5678",
+      typeId: 2,
+      status: "available",
+      latitude: 40.7145,
+      longitude: -74.0075,
+      driverId: null
+    },
+    {
+      registrationNumber: "MH-01-EF-9012",
+      typeId: 1,
+      status: "available",
+      latitude: 40.7155,
+      longitude: -74.0085,
+      driverId: null
+    }
+  ];
+
+  // Only seed if no ambulances exist
+  const existingAmbulances = await storage.getAmbulances();
+  if (existingAmbulances.length === 0) {
+    for (const ambulance of ambulancesData) {
+      await storage.createAmbulance(ambulance);
+    }
+  }
+}
