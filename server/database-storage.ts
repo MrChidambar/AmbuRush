@@ -37,8 +37,9 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values({
       ...insertUser,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      // Only include fields defined in the schema
+      role: insertUser.role || 'patient',
+      createdAt: new Date()
     }).returning();
     return user;
   }
@@ -109,7 +110,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAmbulance(insertAmbulance: InsertAmbulance): Promise<Ambulance> {
-    const [ambulance] = await db.insert(ambulances).values(insertAmbulance).returning();
+    const [ambulance] = await db.insert(ambulances).values({
+      ...insertAmbulance,
+      status: insertAmbulance.status || 'available',
+      latitude: insertAmbulance.latitude || null,
+      longitude: insertAmbulance.longitude || null,
+      driverId: insertAmbulance.driverId || null
+    }).returning();
     return ambulance;
   }
 
@@ -182,9 +189,11 @@ export class DatabaseStorage implements IStorage {
         assignedAmbulanceId = closestAmbulance.id;
         
         // Update ambulance status to assigned
-        await db.update(ambulances)
-          .set({ status: 'assigned' })
-          .where(eq(ambulances.id, assignedAmbulanceId));
+        if (assignedAmbulanceId) {
+          await db.update(ambulances)
+            .set({ status: 'assigned' })
+            .where(eq(ambulances.id, assignedAmbulanceId));
+        }
       }
     }
     
@@ -212,10 +221,22 @@ export class DatabaseStorage implements IStorage {
     }
     
     const [booking] = await db.insert(bookings).values({
-      ...insertBooking,
-      ambulanceId: assignedAmbulanceId,
-      estimatedFare,
+      userId: insertBooking.userId,
+      ambulanceId: assignedAmbulanceId || null,
+      ambulanceTypeId: insertBooking.ambulanceTypeId || null,
+      bookingType: insertBooking.bookingType,
       status: insertBooking.status || (insertBooking.bookingType === 'emergency' ? 'confirmed' : 'pending'),
+      pickupAddress: insertBooking.pickupAddress,
+      pickupLatitude: insertBooking.pickupLatitude,
+      pickupLongitude: insertBooking.pickupLongitude,
+      destinationAddress: insertBooking.destinationAddress || null,
+      destinationLatitude: insertBooking.destinationLatitude || null,
+      destinationLongitude: insertBooking.destinationLongitude || null,
+      patientDetails: insertBooking.patientDetails,
+      emergencyContact: insertBooking.emergencyContact,
+      estimatedFare: estimatedFare || null,
+      scheduledTime: insertBooking.scheduledTime || null,
+      notes: insertBooking.notes || null,
       createdAt: new Date(),
       updatedAt: new Date()
     }).returning();
@@ -266,7 +287,12 @@ export class DatabaseStorage implements IStorage {
 
   async addBookingStatusUpdate(insertUpdate: InsertBookingStatusUpdate): Promise<BookingStatusUpdate> {
     const [update] = await db.insert(bookingStatusUpdates).values({
-      ...insertUpdate,
+      bookingId: insertUpdate.bookingId,
+      status: insertUpdate.status,
+      message: insertUpdate.message || null,
+      latitude: insertUpdate.latitude || null,
+      longitude: insertUpdate.longitude || null,
+      eta: insertUpdate.eta || null,
       createdAt: new Date()
     }).returning();
     return update;

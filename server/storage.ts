@@ -94,8 +94,14 @@ export class MemStorage implements IStorage {
     const id = this.userIdCounter++;
     const now = new Date();
     const user: User = { 
-      ...insertUser, 
       id,
+      username: insertUser.username,
+      password: insertUser.password,
+      email: insertUser.email,
+      firstName: insertUser.firstName,
+      lastName: insertUser.lastName,
+      phoneNumber: insertUser.phoneNumber,
+      role: insertUser.role || 'patient',
       createdAt: now
     };
     this.users.set(id, user);
@@ -201,7 +207,15 @@ export class MemStorage implements IStorage {
 
   async createAmbulance(insertAmbulance: InsertAmbulance): Promise<Ambulance> {
     const id = this.ambulanceIdCounter++;
-    const ambulance: Ambulance = { ...insertAmbulance, id };
+    const ambulance: Ambulance = { 
+      id,
+      registrationNumber: insertAmbulance.registrationNumber,
+      typeId: insertAmbulance.typeId,
+      status: insertAmbulance.status || 'available',
+      latitude: insertAmbulance.latitude || null,
+      longitude: insertAmbulance.longitude || null,
+      driverId: insertAmbulance.driverId || null
+    };
     this.ambulances.set(id, ambulance);
     return ambulance;
   }
@@ -386,8 +400,13 @@ export class MemStorage implements IStorage {
     const now = new Date();
     
     const update: BookingStatusUpdate = {
-      ...insertUpdate,
       id,
+      bookingId: insertUpdate.bookingId,
+      status: insertUpdate.status,
+      message: insertUpdate.message || null,
+      latitude: insertUpdate.latitude || null,
+      longitude: insertUpdate.longitude || null,
+      eta: insertUpdate.eta || null,
       createdAt: now
     };
     
