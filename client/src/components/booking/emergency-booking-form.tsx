@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -90,8 +90,11 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
     queryFn: async () => {
       if (pickupLatitude === 0 || pickupLongitude === 0) return [];
       
+      console.log("Fetching hospitals with coordinates:", pickupLatitude, pickupLongitude);
       const response = await fetch(`/api/hospitals?latitude=${pickupLatitude}&longitude=${pickupLongitude}`);
-      return response.json();
+      const data = await response.json();
+      console.log("Hospitals found:", data.length);
+      return data;
     }
   });
 
@@ -133,6 +136,14 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
       });
     },
   });
+
+  // Add an effect to refetch hospitals when location changes
+  useEffect(() => {
+    if (pickupLatitude !== 0 && pickupLongitude !== 0) {
+      console.log("Location changed, refetching hospitals:", pickupLatitude, pickupLongitude);
+      refetchHospitals();
+    }
+  }, [pickupLatitude, pickupLongitude, refetchHospitals]);
 
   const useCurrentLocation = () => {
     setIsUsingCurrentLocation(true);
