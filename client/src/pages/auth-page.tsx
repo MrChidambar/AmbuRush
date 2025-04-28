@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Ambulance, LogIn, UserPlus, Phone, Mail } from "lucide-react";
+import { Ambulance, LogIn, UserPlus, Phone, Mail, ShieldCheck } from "lucide-react";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -35,8 +35,24 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [location, navigate] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  
+  // Check for admin mode in URL parameters
+  useEffect(() => {
+    // This checks if the URL has "?admin=true" parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    setIsAdminMode(urlParams.get('admin') === 'true');
+  }, []);
 
   const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  const adminLoginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
@@ -61,14 +77,23 @@ export default function AuthPage() {
     loginMutation.mutate(data);
   };
 
+  const onAdminLoginSubmit = (data: LoginFormValues) => {
+    // Here we're using the same login mutation, but we could add extra validation if needed
+    loginMutation.mutate(data);
+  };
+
   const onRegisterSubmit = (data: RegisterFormValues) => {
     registerMutation.mutate(data);
   };
 
-  // Redirect to home if already logged in
+  // Redirect to appropriate page if already logged in
   useEffect(() => {
     if (user) {
-      navigate("/");
+      if (user.role === 'admin') {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
     }
   }, [user, navigate]);
 
@@ -82,13 +107,18 @@ export default function AuthPage() {
             {/* Auth Forms */}
             <div>
               <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsList className={`grid w-full ${isAdminMode ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
                   <TabsTrigger value="login" className="text-base font-medium">
                     <LogIn className="mr-2 h-4 w-4" /> Login
                   </TabsTrigger>
                   <TabsTrigger value="register" className="text-base font-medium">
                     <UserPlus className="mr-2 h-4 w-4" /> Register
                   </TabsTrigger>
+                  {isAdminMode && (
+                    <TabsTrigger value="admin" className="text-base font-medium">
+                      <ShieldCheck className="mr-2 h-4 w-4" /> Admin Login
+                    </TabsTrigger>
+                  )}
                 </TabsList>
                 
                 <TabsContent value="login">
@@ -284,6 +314,70 @@ export default function AuthPage() {
                     </CardContent>
                   </Card>
                 </TabsContent>
+                
+                {isAdminMode && (
+                  <TabsContent value="admin">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Admin Access</CardTitle>
+                        <CardDescription>
+                          Sign in with your administrator credentials
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Form {...adminLoginForm}>
+                          <form onSubmit={adminLoginForm.handleSubmit(onAdminLoginSubmit)} className="space-y-4">
+                            <FormField
+                              control={adminLoginForm.control}
+                              name="username"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Admin Username</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Enter admin username" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={adminLoginForm.control}
+                              name="password"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Password</FormLabel>
+                                  <FormControl>
+                                    <Input type="password" placeholder="Enter admin password" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <Button 
+                              type="submit" 
+                              className="w-full" 
+                              disabled={loginMutation.isPending}
+                            >
+                              {loginMutation.isPending ? (
+                                <div className="flex items-center">
+                                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Signing in...
+                                </div>
+                              ) : (
+                                <span>Admin Sign in</span>
+                              )}
+                            </Button>
+                          </form>
+                        </Form>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                )}
               </Tabs>
             </div>
             

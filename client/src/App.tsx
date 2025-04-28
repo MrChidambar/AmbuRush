@@ -24,7 +24,11 @@ function Router() {
       <ProtectedRoute path="/tracking" component={TrackingPage} />
       <ProtectedRoute path="/tracking/:bookingId" component={TrackingPage} />
       <ProtectedRoute path="/history" component={BookingHistoryPage} />
-      <ProtectedRoute path="/admin" component={AdminDashboardPage} />
+      <ProtectedRoute 
+        path="/admin" 
+        component={AdminDashboardPage} 
+        requiredRole={["admin"]} 
+      />
       <Route path="/ambulance-detection" component={AmbulanceDetectionPage} />
       <Route component={NotFound} />
     </Switch>
