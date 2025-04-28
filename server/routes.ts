@@ -496,11 +496,25 @@ async function seedInitialData() {
       specialties: ["Cardiac", "Emergency", "Pediatric", "Neurosurgery"]
     },
     {
-      name: "Columbia Asia Hospital",
-      address: "Whitefield, Bengaluru 560066",
-      latitude: 12.9697,
-      longitude: 77.7499,
-      specialties: ["Emergency", "General Surgery", "Orthopedic"]
+      name: "BGS Gleneagles Global Hospital",
+      address: "67, Uttarahalli Main Rd, Sunkalpalya, Bengaluru",
+      latitude: 12.9276,
+      longitude: 77.5477,
+      specialties: ["Multi-Organ Transplant", "Cancer Care", "Neurosciences", "Cardiac Sciences"]
+    },
+    {
+      name: "Jayadeva Memorial Hospital",
+      address: "Jayanagar, Bengaluru",
+      latitude: 12.9278,
+      longitude: 77.5943,
+      specialties: ["Orthopedics", "Rheumatology", "Arthritis Care"]
+    },
+    {
+      name: "Sanjeevani Specialty Healthcare",
+      address: "Bannerghatta Road, Bengaluru",
+      latitude: 12.8933,
+      longitude: 77.5996,
+      specialties: ["General Medicine", "Diabetes Care", "Cardiology"]
     }
   ];
 

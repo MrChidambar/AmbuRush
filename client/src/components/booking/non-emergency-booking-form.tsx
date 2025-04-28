@@ -742,7 +742,7 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
                           center={
                             form.getValues("destinationLatitude") !== undefined && form.getValues("destinationLatitude") !== 0
                               ? [form.getValues("destinationLatitude")!, form.getValues("destinationLongitude")!]
-                              : [40.7128, -74.0060]
+                              : [12.9716, 77.5946] // Bangalore coordinates
                           }
                           markerPosition={
                             form.getValues("destinationLatitude") !== undefined && form.getValues("destinationLatitude") !== 0
