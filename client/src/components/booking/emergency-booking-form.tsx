@@ -57,16 +57,6 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
   const [step, setStep] = useState(1);
   const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
 
-  // Fetch ambulance types
-  const { data: ambulanceTypes, isLoading: isLoadingTypes } = useQuery<AmbulanceType[]>({
-    queryKey: ["/api/ambulance-types"],
-  });
-
-  // Fetch nearby hospitals
-  const { data: hospitals, isLoading: isLoadingHospitals } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
-  });
-
   // Form definition
   const form = useForm<EmergencyBookingFormValues>({
     resolver: zodResolver(emergencyBookingSchema),
@@ -84,6 +74,25 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
       },
       termsAccepted: false
     },
+  });
+  
+  // Fetch ambulance types
+  const { data: ambulanceTypes, isLoading: isLoadingTypes } = useQuery<AmbulanceType[]>({
+    queryKey: ["/api/ambulance-types"],
+  });
+
+  // Fetch nearby hospitals based on user's location
+  const { data: hospitals, isLoading: isLoadingHospitals, refetch: refetchHospitals } = useQuery<Hospital[]>({
+    queryKey: ["/api/hospitals", form.getValues("pickupLatitude"), form.getValues("pickupLongitude")],
+    enabled: form.getValues("pickupLatitude") !== 0 && form.getValues("pickupLongitude") !== 0,
+    queryFn: async () => {
+      const lat = form.getValues("pickupLatitude");
+      const lng = form.getValues("pickupLongitude");
+      if (lat === 0 || lng === 0) return [];
+      
+      const response = await fetch(`/api/hospitals?latitude=${lat}&longitude=${lng}`);
+      return response.json();
+    }
   });
 
   // Create booking mutation
@@ -139,6 +148,8 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
               form.setValue("pickupLongitude", position.coords.longitude);
               form.setValue("pickupAddress", data.display_name || "Current Location");
               setIsUsingCurrentLocation(false);
+              // Refetch nearby hospitals based on new location
+              refetchHospitals();
             })
             .catch(() => {
               // If reverse geocoding fails, just set coordinates

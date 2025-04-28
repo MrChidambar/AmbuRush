@@ -25,8 +25,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/hospitals", async (req, res) => {
     try {
-      const allHospitals = await storage.getHospitals();
-      res.json(allHospitals);
+      // If latitude and longitude are provided, fetch nearby hospitals
+      if (req.query.latitude && req.query.longitude) {
+        const latitude = parseFloat(req.query.latitude as string);
+        const longitude = parseFloat(req.query.longitude as string);
+        
+        if (isNaN(latitude) || isNaN(longitude)) {
+          return res.status(400).json({ message: "Invalid latitude or longitude" });
+        }
+        
+        // Get all hospitals and calculate distance to each
+        const allHospitals = await storage.getHospitals();
+        const hospitalsWithDistance = allHospitals.map(hospital => {
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            hospital.latitude,
+            hospital.longitude
+          );
+          return { ...hospital, distance };
+        });
+        
+        // Sort by distance and return
+        hospitalsWithDistance.sort((a, b) => a.distance - b.distance);
+        res.json(hospitalsWithDistance);
+      } else {
+        // Just return all hospitals if no coordinates provided
+        const allHospitals = await storage.getHospitals();
+        res.json(allHospitals);
+      }
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch hospitals" });
     }
