@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Ambulance, User, LogOut, Menu, X, Moon, Sun } from "lucide-react";
+import { Ambulance, User, LogOut, Menu, X, Moon, Sun, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -115,6 +115,14 @@ export function AppHeader() {
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </DropdownMenuItem>
+                    {user.role === "admin" && (
+                      <Link href="/admin">
+                        <DropdownMenuItem>
+                          <LayoutDashboard className="mr-2 h-4 w-4" />
+                          <span>Admin Dashboard</span>
+                        </DropdownMenuItem>
+                      </Link>
+                    )}
                     <DropdownMenuItem onClick={handleLogout}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Log out</span>
@@ -187,6 +195,17 @@ export function AppHeader() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                   </div>
                 </div>
+                {user.role === "admin" && (
+                  <Link href="/admin">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                    </Button>
+                  </Link>
+                )}
                 <Button
                   variant="outline"
                   className="w-full justify-start"

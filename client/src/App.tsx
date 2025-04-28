@@ -12,6 +12,7 @@ import TrackingPage from "@/pages/tracking-page";
 import BookingHistoryPage from "@/pages/booking-history-page";
 import AmbulanceDetectionPage from "@/pages/ambulance-detection-page";
 import ServicesPage from "@/pages/services-page";
+import AdminDashboardPage from "@/pages/admin-dashboard-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <ProtectedRoute path="/tracking" component={TrackingPage} />
       <ProtectedRoute path="/tracking/:bookingId" component={TrackingPage} />
       <ProtectedRoute path="/history" component={BookingHistoryPage} />
+      <ProtectedRoute path="/admin" component={AdminDashboardPage} />
       <Route path="/ambulance-detection" component={AmbulanceDetectionPage} />
       <Route component={NotFound} />
     </Switch>
