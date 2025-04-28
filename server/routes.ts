@@ -450,25 +450,39 @@ async function seedInitialData() {
   // Seed hospitals
   const hospitalsData = [
     {
-      name: "City General Hospital",
-      address: "123 Main St, Cityville",
-      latitude: 40.7128,
-      longitude: -74.0060,
-      specialties: ["Emergency", "Trauma", "Cardiac"]
+      name: "AIIMS Bangalore",
+      address: "Bengaluru Urban, Karnataka 560016",
+      latitude: 12.9174,
+      longitude: 77.5990,
+      specialties: ["Emergency", "Trauma", "Cardiac", "Neurology"]
     },
     {
-      name: "Mercy Medical Center",
-      address: "456 Oak Ave, Townsville",
-      latitude: 40.7138,
-      longitude: -74.0070,
-      specialties: ["Pediatric", "Emergency", "Neurology"]
+      name: "Manipal Hospital",
+      address: "Old Airport Road, Bengaluru 560017",
+      latitude: 12.9558,
+      longitude: 77.6491,
+      specialties: ["Pediatric", "Emergency", "Oncology", "Cardiology"]
     },
     {
-      name: "St. Luke's Hospital",
-      address: "789 Pine Rd, Villagetown",
-      latitude: 40.7148,
-      longitude: -74.0080,
-      specialties: ["Cardiac", "Orthopedic", "Emergency"]
+      name: "Fortis Hospital",
+      address: "Bannerghatta Road, Bengaluru 560076",
+      latitude: 12.8911,
+      longitude: 77.5962,
+      specialties: ["Cardiac", "Orthopedic", "Emergency", "Transplant"]
+    },
+    {
+      name: "Narayana Hrudayalaya",
+      address: "Electronic City, Bengaluru 560100",
+      latitude: 12.8429,
+      longitude: 77.6474,
+      specialties: ["Cardiac", "Emergency", "Pediatric", "Neurosurgery"]
+    },
+    {
+      name: "Columbia Asia Hospital",
+      address: "Whitefield, Bengaluru 560066",
+      latitude: 12.9697,
+      longitude: 77.7499,
+      specialties: ["Emergency", "General Surgery", "Orthopedic"]
     }
   ];
 
@@ -483,27 +497,43 @@ async function seedInitialData() {
   // Seed available ambulances
   const ambulancesData = [
     {
-      registrationNumber: "MH-01-AB-1234",
+      registrationNumber: "KA-01-AB-1234",
       typeId: 1,
       status: "available",
-      latitude: 40.7138,
-      longitude: -74.0065,
+      latitude: 12.9280,
+      longitude: 77.6090,
       driverId: null
     },
     {
-      registrationNumber: "MH-01-CD-5678",
+      registrationNumber: "KA-01-CD-5678",
       typeId: 2,
       status: "available",
-      latitude: 40.7145,
-      longitude: -74.0075,
+      latitude: 12.9350,
+      longitude: 77.6245,
       driverId: null
     },
     {
-      registrationNumber: "MH-01-EF-9012",
+      registrationNumber: "KA-01-EF-9012",
       typeId: 1,
       status: "available",
-      latitude: 40.7155,
-      longitude: -74.0085,
+      latitude: 12.9080,
+      longitude: 77.5932,
+      driverId: null
+    },
+    {
+      registrationNumber: "KA-02-GH-3456",
+      typeId: 3,
+      status: "available",
+      latitude: 12.9767,
+      longitude: 77.5713,
+      driverId: null
+    },
+    {
+      registrationNumber: "KA-03-IJ-7890",
+      typeId: 4,
+      status: "available",
+      latitude: 12.8845,
+      longitude: 77.6040,
       driverId: null
     }
   ];

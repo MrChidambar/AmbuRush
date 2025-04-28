@@ -569,7 +569,7 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
                   <FormLabel>Location Preview</FormLabel>
                   <div className="w-full h-48 rounded-md overflow-hidden">
                     <Map
-                      center={[40.7128, -74.0060]}
+                      center={[12.9716, 77.5946]} // Bangalore coordinates
                       markerPosition={
                         form.getValues("pickupLatitude") !== 0
                           ? [form.getValues("pickupLatitude"), form.getValues("pickupLongitude")]
