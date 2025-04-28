@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
+import { setupAuth, hashPassword } from "./auth";
 import { ambulanceTypes, hospitals, insertBookingSchema, patientDetailsSchema, emergencyContactSchema } from "@shared/schema";
 import { sendBookingNotification } from "./services/notification";
 import { z } from "zod";
@@ -393,6 +393,24 @@ function deg2rad(deg: number): number {
 
 // Seed initial data for ambulance types and hospitals
 async function seedInitialData() {
+  // Seed admin user
+  const adminUsername = "admin";
+  const existingAdmin = await storage.getUserByUsername(adminUsername);
+  
+  if (!existingAdmin) {
+    const adminUser = {
+      username: adminUsername,
+      password: await hashPassword("admin"),
+      firstName: "System",
+      lastName: "Administrator",
+      email: "admin@ambulanceapp.com",
+      phoneNumber: "9999999999",
+      role: "admin"
+    };
+    await storage.createUser(adminUser);
+    console.log("Admin user created with username: admin and password: admin");
+  }
+  
   // Seed ambulance types
   const ambulanceTypesData = [
     {
