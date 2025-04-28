@@ -128,6 +128,11 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
   // Create booking mutation
   const bookingMutation = useMutation({
     mutationFn: async (data: NonEmergencyBookingFormValues) => {
+      // Ensure scheduledTime is a valid Date object
+      const scheduledTime = data.scheduledTime instanceof Date 
+        ? data.scheduledTime 
+        : new Date(data.scheduledTime);
+      
       const bookingData = {
         userId: user?.id,
         bookingType: "scheduled",
@@ -141,7 +146,7 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
         destinationAddress: data.destinationAddress,
         destinationDetails: data.destinationDetails,
         hospitalId: data.hospitalId,
-        scheduledTime: data.scheduledTime,
+        scheduledTime: scheduledTime,
         emergencyContact: data.emergencyContact,
         // Enhanced patient details with booking metadata
         patientDetails: {
@@ -149,7 +154,9 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
           bookingPurpose: data.bookingPurpose,
           isRecurring: data.isRecurring,
           recurringPattern: data.recurringPattern,
-          recurringEndDate: data.recurringEndDate,
+          recurringEndDate: data.recurringEndDate instanceof Date ? 
+            data.recurringEndDate : 
+            (data.recurringEndDate ? new Date(data.recurringEndDate) : null),
         }
       };
       
