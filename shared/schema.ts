@@ -193,7 +193,10 @@ export type PatientDetails = z.infer<typeof patientDetailsSchema>;
 // Emergency contact schema for form validation
 export const emergencyContactSchema = z.object({
   name: z.string().min(1, "Emergency contact name is required"),
-  phone: z.string().min(10, "Valid phone number is required"),
+  phone: z.string()
+    .min(10, "Phone number must be at least 10 digits")
+    .regex(/^(\+91)?[6-9]\d{9}$/, "Must be a valid Indian phone number")
+    .transform(val => val.startsWith('+91') ? val : `+91${val}`),
   relationship: z.string().optional(),
 });
 

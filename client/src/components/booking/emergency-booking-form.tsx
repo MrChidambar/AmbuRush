@@ -573,7 +573,16 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input placeholder="Contact Phone" {...field} />
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <span className="text-gray-500">+91</span>
+                              </div>
+                              <Input 
+                                className="pl-12"
+                                placeholder="9876543210" 
+                                {...field} 
+                              />
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>

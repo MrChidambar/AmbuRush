@@ -25,7 +25,10 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+  phoneNumber: z.string()
+    .min(10, "Phone number must be at least 10 digits")
+    .regex(/^(\+91)?[6-9]\d{9}$/, "Must be a valid Indian phone number format (e.g., 9876543210 or +919876543210)")
+    .transform(val => val.startsWith('+91') ? val : `+91${val}`),
   role: z.enum(["patient", "driver", "admin"]).default("patient"),
 });
 
@@ -263,11 +266,17 @@ export default function AuthPage() {
                               <FormItem>
                                 <FormLabel>Phone Number</FormLabel>
                                 <FormControl>
-                                  <Input 
-                                    type="tel" 
-                                    placeholder="Enter your phone number" 
-                                    {...field} 
-                                  />
+                                  <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                      <span className="text-gray-500">+91</span>
+                                    </div>
+                                    <Input 
+                                      type="tel" 
+                                      className="pl-12"
+                                      placeholder="9876543210"
+                                      {...field} 
+                                    />
+                                  </div>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
