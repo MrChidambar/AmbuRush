@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export function EmergencyBanner() {
   const callEmergency = () => {
-    window.open('tel:911');
+    window.open('tel:108');
   };
 
   return (
@@ -15,7 +15,7 @@ export function EmergencyBanner() {
         <div className="ml-3">
           <h3 className="text-sm font-medium text-primary-700 dark:text-primary-300">Emergency Services Available 24/7</h3>
           <div className="mt-1 text-sm text-primary-600 dark:text-primary-400">
-            For life-threatening emergencies, please call emergency services directly at <strong>911</strong> or use the emergency booking option below.
+            For life-threatening emergencies, please call emergency services directly at <strong>108</strong> or use the emergency booking option below.
           </div>
         </div>
         <div className="ml-auto">
@@ -24,7 +24,7 @@ export function EmergencyBanner() {
             className="shadow-md" 
             onClick={callEmergency}
           >
-            <Phone className="h-4 w-4 mr-2" /> Call 911
+            <Phone className="h-4 w-4 mr-2" /> Call 108
           </Button>
         </div>
       </div>
