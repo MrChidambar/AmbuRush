@@ -121,7 +121,8 @@ export const bookings = pgTable("bookings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertBookingSchema = createInsertSchema(bookings)
+// Create the base booking schema from drizzle
+const baseBookingSchema = createInsertSchema(bookings)
   .omit({ id: true, createdAt: true, updatedAt: true })
   .partial({
     ambulanceId: true,
@@ -137,6 +138,16 @@ export const insertBookingSchema = createInsertSchema(bookings)
     rating: true,
     feedback: true,
   });
+
+// Extend the schema with proper date transformation for scheduledTime
+export const insertBookingSchema = baseBookingSchema.transform((data) => {
+  // Handle scheduled time to ensure it's a Date object
+  if (data.scheduledTime && typeof data.scheduledTime === 'string') {
+    console.log('Converting string date to Date object:', data.scheduledTime);
+    data.scheduledTime = new Date(data.scheduledTime);
+  }
+  return data;
+});
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;

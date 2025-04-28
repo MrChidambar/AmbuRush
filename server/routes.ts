@@ -50,6 +50,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Secure routes - require authentication
   app.post("/api/secure/bookings", async (req, res) => {
     try {
+      // Log the received data for debugging
+      console.log("Received booking data:", JSON.stringify(req.body));
+
       // Validate booking data
       const bookingData = insertBookingSchema.parse(req.body);
       
@@ -61,17 +64,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emergencyContactSchema.parse(bookingData.emergencyContact);
       }
       
-      // Add user ID from authenticated user
+      // Add user ID from authenticated user if not already provided
       const booking = await storage.createBooking({
         ...bookingData,
-        userId: req.user!.id,
+        userId: bookingData.userId || req.user!.id,
       });
       
       res.status(201).json(booking);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid booking data", errors: error.errors });
+        console.error("ZodError details:", JSON.stringify(error.errors));
+        return res.status(400).json({ 
+          message: "Invalid booking data", 
+          errors: error.errors 
+        });
       }
+      console.error("Booking creation error:", error);
       res.status(500).json({ message: "Failed to create booking" });
     }
   });
