@@ -130,11 +130,18 @@ export function AppHeader() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Link href="/auth">
-                  <Button variant="default">
-                    <User className="h-4 w-4 mr-2" /> Login
-                  </Button>
-                </Link>
+                <div className="flex items-center space-x-2">
+                  <Link href="/auth">
+                    <Button variant="default">
+                      <User className="h-4 w-4 mr-2" /> Login
+                    </Button>
+                  </Link>
+                  <Link href="/auth?admin=true">
+                    <Button variant="outline" size="sm">
+                      <LayoutDashboard className="h-4 w-4 mr-2" /> Admin
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
           </div>
@@ -218,14 +225,25 @@ export function AppHeader() {
                 </Button>
               </div>
             ) : (
-              <Link href="/auth">
-                <Button
-                  className="w-full"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <User className="mr-2 h-4 w-4" /> Login / Register
-                </Button>
-              </Link>
+              <div className="space-y-2">
+                <Link href="/auth">
+                  <Button
+                    className="w-full"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <User className="mr-2 h-4 w-4" /> Login / Register
+                  </Button>
+                </Link>
+                <Link href="/auth?admin=true">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Access
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
         </div>
