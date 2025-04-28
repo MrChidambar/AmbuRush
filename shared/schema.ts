@@ -139,14 +139,17 @@ const baseBookingSchema = createInsertSchema(bookings)
     feedback: true,
   });
 
-// Extend the schema with proper date transformation for scheduledTime
-export const insertBookingSchema = baseBookingSchema.transform((data) => {
-  // Handle scheduled time to ensure it's a Date object
-  if (data.scheduledTime && typeof data.scheduledTime === 'string') {
-    console.log('Converting string date to Date object:', data.scheduledTime);
-    data.scheduledTime = new Date(data.scheduledTime);
+// Custom date parser for scheduledTime
+const dateParser = z.preprocess((val) => {
+  if (typeof val === 'string' || val instanceof String) {
+    return new Date(val as string);
   }
-  return data;
+  return val;
+}, z.date().optional());
+
+// Extend the schema with proper date transformation for scheduledTime
+export const insertBookingSchema = baseBookingSchema.extend({
+  scheduledTime: dateParser,
 });
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
