@@ -292,9 +292,9 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
       
       const baseFare = selectedAmbulanceType.basePrice;
       const distanceFare = distance * selectedAmbulanceType.pricePerKm;
-      estimatedFare = `$${(baseFare + distanceFare).toFixed(2)}`;
+      estimatedFare = `₹${(baseFare + distanceFare).toFixed(2)}`;
     } else {
-      estimatedFare = `$${selectedAmbulanceType.basePrice.toFixed(2)}+`;
+      estimatedFare = `₹${selectedAmbulanceType.basePrice.toFixed(2)}+`;
     }
   }
 

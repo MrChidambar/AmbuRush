@@ -398,43 +398,43 @@ async function seedInitialData() {
     {
       name: "Basic Life Support",
       description: "For non-critical transport with basic medical care",
-      basePrice: 50,
-      pricePerKm: 2,
+      basePrice: 1500,
+      pricePerKm: 25,
       icon: "ambulance"
     },
     {
       name: "Advanced Life Support",
       description: "For critical patients requiring advanced care",
-      basePrice: 150,
-      pricePerKm: 3,
+      basePrice: 3000,
+      pricePerKm: 45,
       icon: "heartbeat"
     },
     {
       name: "Neonatal",
       description: "Specialized transport for newborns",
-      basePrice: 200,
-      pricePerKm: 3.5,
+      basePrice: 4000,
+      pricePerKm: 60,
       icon: "baby"
     },
     {
       name: "ICU on Wheels",
       description: "Mobile intensive care unit for critical patients",
-      basePrice: 300,
-      pricePerKm: 4,
+      basePrice: 5000,
+      pricePerKm: 75,
       icon: "hospital"
     },
     {
       name: "Mental Health",
       description: "Specialized transport with mental health professionals",
-      basePrice: 150,
-      pricePerKm: 2.5,
+      basePrice: 2500,
+      pricePerKm: 35,
       icon: "brain"
     },
     {
       name: "Pet Ambulance",
       description: "Emergency transport for pets",
-      basePrice: 100,
-      pricePerKm: 2,
+      basePrice: 2000,
+      pricePerKm: 30,
       icon: "paw"
     }
   ];

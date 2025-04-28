@@ -51,7 +51,7 @@ export function AmbulanceTypeCard({ ambulanceType, selected, onSelect }: Ambulan
           <h4 className="font-medium text-foreground">{name}</h4>
           <p className="text-sm text-muted-foreground">{description}</p>
           <p className="text-sm font-medium text-primary mt-1">
-            ${basePrice.toFixed(2)} base + ${pricePerKm.toFixed(2)}/km
+            ₹{basePrice.toFixed(2)} base + ₹{pricePerKm.toFixed(2)}/km
           </p>
         </div>
       </div>
