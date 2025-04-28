@@ -56,6 +56,8 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
+  const [pickupLatitude, setPickupLatitude] = useState(0);
+  const [pickupLongitude, setPickupLongitude] = useState(0);
 
   // Form definition
   const form = useForm<EmergencyBookingFormValues>({
@@ -83,14 +85,12 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
 
   // Fetch nearby hospitals based on user's location
   const { data: hospitals, isLoading: isLoadingHospitals, refetch: refetchHospitals } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals", form.getValues("pickupLatitude"), form.getValues("pickupLongitude")],
-    enabled: form.getValues("pickupLatitude") !== 0 && form.getValues("pickupLongitude") !== 0,
+    queryKey: ["/api/hospitals", pickupLatitude, pickupLongitude],
+    enabled: pickupLatitude !== 0 && pickupLongitude !== 0,
     queryFn: async () => {
-      const lat = form.getValues("pickupLatitude");
-      const lng = form.getValues("pickupLongitude");
-      if (lat === 0 || lng === 0) return [];
+      if (pickupLatitude === 0 || pickupLongitude === 0) return [];
       
-      const response = await fetch(`/api/hospitals?latitude=${lat}&longitude=${lng}`);
+      const response = await fetch(`/api/hospitals?latitude=${pickupLatitude}&longitude=${pickupLongitude}`);
       return response.json();
     }
   });
@@ -144,18 +144,32 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
           fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`)
             .then(response => response.json())
             .then(data => {
-              form.setValue("pickupLatitude", position.coords.latitude);
-              form.setValue("pickupLongitude", position.coords.longitude);
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              
+              form.setValue("pickupLatitude", lat);
+              form.setValue("pickupLongitude", lng);
               form.setValue("pickupAddress", data.display_name || "Current Location");
+              
+              // Update state variables to trigger hospital query
+              setPickupLatitude(lat);
+              setPickupLongitude(lng);
+              
               setIsUsingCurrentLocation(false);
-              // Refetch nearby hospitals based on new location
-              refetchHospitals();
             })
             .catch(() => {
               // If reverse geocoding fails, just set coordinates
-              form.setValue("pickupLatitude", position.coords.latitude);
-              form.setValue("pickupLongitude", position.coords.longitude);
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              
+              form.setValue("pickupLatitude", lat);
+              form.setValue("pickupLongitude", lng);
               form.setValue("pickupAddress", "Current Location");
+              
+              // Update state variables to trigger hospital query
+              setPickupLatitude(lat);
+              setPickupLongitude(lng);
+              
               setIsUsingCurrentLocation(false);
             });
         },
@@ -181,6 +195,10 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
   const handleMapClick = (lat: number, lng: number) => {
     form.setValue("pickupLatitude", lat);
     form.setValue("pickupLongitude", lng);
+    
+    // Update state variables to trigger hospital query
+    setPickupLatitude(lat);
+    setPickupLongitude(lng);
     
     // Get address from coordinates using Nominatim
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)

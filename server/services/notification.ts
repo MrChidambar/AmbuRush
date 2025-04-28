@@ -2,14 +2,16 @@ import sgMail from '@sendgrid/mail';
 import { Booking } from '@shared/schema';
 
 // Initialize SendGrid with API Key
-if (process.env.SENDGRID_API_KEY) {
+if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+} else {
+  console.warn('SendGrid API key is missing or invalid. Notification features will not work.');
 }
 
 // Main notification function that determines which method to use based on preference and availability
 export async function sendBookingNotification(booking: Booking, user: any): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY) {
-    console.warn('SendGrid API key not configured. Notification not sent.');
+  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+    console.warn('SendGrid API key not configured or invalid. Notification not sent.');
     return false;
   }
 
