@@ -47,6 +47,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin API routes
+  app.get("/api/admin/bookings", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      // Get all bookings for admin view
+      const allBookings = await storage.getAllBookings();
+      res.json(allBookings);
+    } catch (error) {
+      console.error("Error fetching admin bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  app.get("/api/admin/ambulances", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      const allAmbulances = await storage.getAmbulances();
+      res.json(allAmbulances);
+    } catch (error) {
+      console.error("Error fetching ambulances:", error);
+      res.status(500).json({ message: "Failed to fetch ambulances" });
+    }
+  });
+
+  app.get("/api/admin/drivers", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      // Get all drivers (users with role 'driver')
+      const drivers = await storage.getUsersByRole("driver");
+      res.json(drivers);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      res.status(500).json({ message: "Failed to fetch drivers" });
+    }
+  });
+
+  app.get("/api/admin/patients", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      // Get all patients (users with role 'patient')
+      const patients = await storage.getUsersByRole("patient");
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      res.status(500).json({ message: "Failed to fetch patients" });
+    }
+  });
+
   // Secure routes - require authentication
   app.post("/api/secure/bookings", async (req, res) => {
     try {

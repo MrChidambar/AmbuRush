@@ -8,6 +8,7 @@ export interface IStorage {
   // User related
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUsersByRole(role: string): Promise<User[]>; // For admin to get drivers/patients
   createUser(user: InsertUser): Promise<User>;
   
   // Ambulance type related
@@ -30,6 +31,7 @@ export interface IStorage {
   assignAmbulanceToDriver(id: number, driverId: number): Promise<Ambulance>;
   
   // Booking related
+  getAllBookings(): Promise<Booking[]>; // For admin to view all bookings
   getBookingById(id: number): Promise<Booking | undefined>;
   getBookingsByUserId(userId: number): Promise<Booking[]>;
   getActiveBookingByAmbulanceId(ambulanceId: number): Promise<Booking | undefined>;
@@ -88,6 +90,12 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(
       (user) => user.username === username,
     );
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return Array.from(this.users.values())
+      .filter(user => user.role === role)
+      .sort((a, b) => a.id - b.id);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -254,6 +262,14 @@ export class MemStorage implements IStorage {
   }
 
   // Booking related methods
+  async getAllBookings(): Promise<Booking[]> {
+    return Array.from(this.bookings.values())
+      .sort((a, b) => {
+        // Sort by created date, newest first
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+  
   async getBookingById(id: number): Promise<Booking | undefined> {
     return this.bookings.get(id);
   }
