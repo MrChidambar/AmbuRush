@@ -1,27 +1,52 @@
 import sgMail from '@sendgrid/mail';
+import twilio from 'twilio';
 import { Booking } from '@shared/schema';
 
-// Initialize SendGrid with API Key
+// Initialize SendGrid with API Key for email notifications
 if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('SendGrid configured successfully for email notifications.');
 } else {
-  console.warn('SendGrid API key is missing or invalid. Notification features will not work.');
+  console.warn('SendGrid API key is missing or invalid. Email notifications will not work.');
+}
+
+// Initialize Twilio with credentials for SMS notifications
+let twilioClient: twilio.Twilio | null = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  try {
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('Twilio client configured successfully for SMS notifications.');
+  } catch (error) {
+    console.error('Failed to initialize Twilio client:', error);
+  }
+} else {
+  console.warn('Twilio credentials are missing or invalid. SMS notifications will not work.');
 }
 
 // Main notification function that determines which method to use based on preference and availability
 export async function sendBookingNotification(booking: Booking, user: any): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_API_KEY.startsWith('SG.')) {
-    console.warn('SendGrid API key not configured or invalid. Notification not sent.');
-    return false;
-  }
-
   try {
     // If user has mobile number and prefers SMS
     if (user.phoneNumber && user.notificationPreference === 'sms') {
-      return await sendSMSNotification(booking, user);
+      if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+        return await sendSMSNotification(booking, user);
+      } else {
+        console.warn('SMS notification requested but Twilio is not configured. Attempting email notification instead.');
+        if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+          return await sendEmailNotification(booking, user);
+        } else {
+          console.warn('Email notification fallback failed due to missing SendGrid configuration.');
+          return false;
+        }
+      }
     } else {
       // Default to email notification
-      return await sendEmailNotification(booking, user);
+      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+        return await sendEmailNotification(booking, user);
+      } else {
+        console.warn('Email notification requested but SendGrid is not configured properly.');
+        return false;
+      }
     }
   } catch (error) {
     console.error('Failed to send notification:', error);
@@ -50,14 +75,25 @@ async function sendEmailNotification(booking: Booking, user: any): Promise<boole
   }
 }
 
-// SMS notification through SendGrid's partner service
+// SMS notification using Twilio
 async function sendSMSNotification(booking: Booking, user: any): Promise<boolean> {
+  if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
+    console.error('Twilio client or phone number not configured');
+    return false;
+  }
+  
   try {
-    // SendGrid doesn't directly support SMS, but we can use their email to SMS gateway
-    // This would typically involve a different setup with Twilio or another SMS provider
-    // For now, we'll use email as a fallback 
-    console.log('SMS notification requested but not available. Sending email instead.');
-    return await sendEmailNotification(booking, user);
+    const bookingType = booking.bookingType === 'emergency' ? 'Emergency' : 'Scheduled';
+    const messageBody = `MediRush: Your ${bookingType} ambulance booking #${booking.id} has been confirmed. Pickup: ${booking.pickupAddress}. Status: ${booking.status}. Track at: medirush.com/tracking/${booking.id}`;
+    
+    const message = await twilioClient.messages.create({
+      body: messageBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: user.phoneNumber
+    });
+    
+    console.log(`SMS notification sent to ${user.phoneNumber}. SID: ${message.sid}`);
+    return true;
   } catch (error) {
     console.error('Error sending SMS notification:', error);
     return false;
