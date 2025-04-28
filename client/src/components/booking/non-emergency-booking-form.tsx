@@ -129,6 +129,7 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
   const bookingMutation = useMutation({
     mutationFn: async (data: NonEmergencyBookingFormValues) => {
       const bookingData = {
+        userId: user?.id,
         bookingType: "scheduled",
         ambulanceTypeId: data.ambulanceTypeId,
         pickupLatitude: data.pickupLatitude,
@@ -141,9 +142,8 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
         destinationDetails: data.destinationDetails,
         hospitalId: data.hospitalId,
         scheduledTime: data.scheduledTime,
-        patientDetails: data.patientDetails,
         emergencyContact: data.emergencyContact,
-        // Additional metadata for recurring bookings
+        // Enhanced patient details with booking metadata
         patientDetails: {
           ...data.patientDetails,
           bookingPurpose: data.bookingPurpose,

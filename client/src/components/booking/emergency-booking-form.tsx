@@ -90,6 +90,7 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
   const bookingMutation = useMutation({
     mutationFn: async (data: EmergencyBookingFormValues) => {
       const bookingData = {
+        userId: user?.id,
         bookingType: "emergency",
         ambulanceTypeId: data.ambulanceTypeId,
         pickupLatitude: data.pickupLatitude,
