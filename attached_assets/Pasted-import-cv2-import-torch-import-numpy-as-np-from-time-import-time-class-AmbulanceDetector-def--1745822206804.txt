@@ -1,0 +1,160 @@
+import cv2
+import torch
+import numpy as np
+from time import time
+
+class AmbulanceDetector:
+    def _init_(self):
+        # Initialize YOLOv5 model with custom settings
+        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path='yolov5s.pt', force_reload=True)
+        
+        # Focus on relevant vehicle classes
+        self.model.classes = [2, 3, 5, 7]  # car, motorcycle, bus, truck
+        self.model.conf = 0.5  # Lower confidence threshold for better detection
+        
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model.to(self.device)
+        print(f"Using {self.device} for inference")
+        
+        # Enhanced ambulance detection parameters
+        self.ambulance_keywords = [
+            'ambulance', 'medical', 'rescue', 'hospital', 
+            'ems', 'paramedic', 'emergency', '911',
+            'first aid', 'red cross', '救护车'  # Chinese for ambulance
+        ]
+        
+        # Visual settings
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.status_color = (0, 0, 255)  # Start with red
+        self.last_detection_time = 0
+        self.detection_cooldown = 3  # seconds
+        
+        # FPS calculation
+        self.fps = 0
+        self.frame_count = 0
+        self.start_time = time()
+        
+        # Color detection for ambulance lights (red/white)
+        self.lower_red = np.array([0, 50, 50])
+        self.upper_red = np.array([10, 255, 255])
+        self.lower_white = np.array([0, 0, 200])
+        self.upper_white = np.array([255, 30, 255])
+        
+    def has_ambulance_colors(self, frame, box):
+        """Check for red/white colors typical in ambulances"""
+        x1, y1, x2, y2 = box
+        roi = frame[y1:y2, x1:x2]
+        
+        # Convert to HSV for color detection
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        
+        # Detect red and white colors
+        mask_red = cv2.inRange(hsv, self.lower_red, self.upper_red)
+        mask_white = cv2.inRange(hsv, self.lower_white, self.upper_white)
+        
+        # Calculate percentage of red/white pixels
+        red_pixels = cv2.countNonZero(mask_red)
+        white_pixels = cv2.countNonZero(mask_white)
+        total_pixels = roi.size / 3  # Divide by 3 for RGB channels
+        
+        return (red_pixels / total_pixels > 0.05) or (white_pixels / total_pixels > 0.1)
+    
+    def is_ambulance(self, label, box, frame):
+        """Enhanced ambulance verification"""
+        label_lower = str(label).lower()
+        
+        # 1. Check for ambulance keywords in label
+        keyword_match = any(keyword in label_lower for keyword in self.ambulance_keywords)
+        
+        # 2. Check for ambulance colors
+        color_match = self.has_ambulance_colors(frame, box)
+        
+        return keyword_match or color_match
+    
+    def detect(self, frame):
+        """Main detection function with mirror effect"""
+        self.frame_count += 1
+        
+        # Flip frame horizontally for mirror effect
+        mirrored_frame = cv2.flip(frame, 1)
+        
+        # Resize for better performance
+        resized_frame = cv2.resize(mirrored_frame, (640, 480))
+        
+        # Perform detection
+        results = self.model(resized_frame)
+        detections = results.pandas().xyxy[0]
+        ambulance_detected = False
+        
+        for _, det in detections.iterrows():
+            x1, y1, x2, y2 = map(int, [det['xmin'], det['ymin'], det['xmax'], det['ymax']])
+            confidence = det['confidence']
+            label = det['name']
+            
+            if confidence > 0.4:  # Lower confidence threshold
+                if self.is_ambulance(label, (x1, y1, x2, y2), resized_frame):
+                    # Draw bounding box
+                    cv2.rectangle(resized_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    label_text = f"AMBULANCE {confidence:.2f}"
+                    cv2.putText(resized_frame, label_text, (x1, y1-10), 
+                                self.font, 0.7, (0, 0, 255), 2)
+                    ambulance_detected = True
+        
+        # Update status indicator
+        current_time = time()
+        if ambulance_detected:
+            self.status_color = (0, 255, 0)  # Green
+            self.last_detection_time = current_time
+        elif current_time - self.last_detection_time > self.detection_cooldown:
+            self.status_color = (0, 0, 255)  # Red
+        
+        # Draw status circle (position adjusted for mirrored view)
+        cv2.circle(resized_frame, (40, 40), 20, self.status_color, -1)  # Moved to top-left
+        
+        # Calculate FPS
+        if self.frame_count % 5 == 0:
+            elapsed = current_time - self.start_time
+            self.fps = self.frame_count / elapsed
+            self.start_time = current_time
+            self.frame_count = 0
+        
+        # Display FPS (position adjusted for mirrored view)
+        cv2.putText(resized_frame, f"FPS: {self.fps:.1f}", (resized_frame.shape[1]-150, 40), 
+                    self.font, 0.8, (0, 255, 0), 2)
+        
+        return resized_frame
+
+def main():
+    # Initialize camera
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    
+    if not cap.isOpened():
+        print("Error: Could not open camera")
+        return
+    
+    detector = AmbulanceDetector()
+    
+    print("Ambulance detection system ready. Press 'q' to quit")
+    
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error reading frame")
+                break
+                
+            # Detect, mirror, and display
+            result = detector.detect(frame)
+            cv2.imshow('Ambulance Detector (Mirrored)', result)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+                
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
+if _name_ == '_main_':
+    main()
