@@ -25,33 +25,14 @@ class AmbulanceDetector {
   isModelLoaded: boolean = false;
   
   // Class IDs from COCO dataset that could be an ambulance:
-  // - 5: bus (YOLOv8n treats ambulances as buses in the sample code)
-  // - 3: car (some ambulances may be detected as cars)
-  // - 8: truck (some ambulances may be detected as trucks)
-  // - 7: truck (in COCO-SSD, class mapping is a bit different)
-  targetClasses = [3, 5, 7, 8]; 
-  confidenceThreshold = 0.3; // Threshold for detection
+  // In the Python code, ambulances are detected as class 5 (bus)
+  targetClasses: number[] = [5]; // ONLY detect buses as potential ambulances
+  confidenceThreshold: number = 0.5; // Higher threshold to avoid false positives
   
-  /**
-   * Ambulance color characteristics (in HSV ranges):
-   * - Typically white with red/blue stripes
-   * - Red: [0-10, 100-255, 100-255] or [160-180, 100-255, 100-255]
-   * - Blue: [100-130, 100-255, 100-255]
-   * - White: [0-180, 0-30, 200-255]
-   * We'll use these to validate if detected vehicles are likely ambulances
-   */
-  ambulanceColorRanges = [
-    { name: 'red', hMin: 0, hMax: 10, sMin: 100, sMax: 255, vMin: 100, vMax: 255 },
-    { name: 'red2', hMin: 160, hMax: 180, sMin: 100, sMax: 255, vMin: 100, vMax: 255 },
-    { name: 'blue', hMin: 100, hMax: 130, sMin: 100, sMax: 255, vMin: 100, vMax: 255 },
-    { name: 'white', hMin: 0, hMax: 180, sMin: 0, sMax: 30, vMin: 200, vMax: 255 },
-  ];
-  
-  // Initialize the detector - load the COCO-SSD model which we'll use for vehicle detection
+  // Initialize the detector
   async initialize(): Promise<boolean> {
     try {
       // Load the model that can detect vehicles (using SSD MobileNet V2)
-      // Based on the Python code that used YOLOv8n.pt for object detection
       this.model = await tf.loadGraphModel(
         'https://tfhub.dev/tensorflow/tfjs-model/ssd_mobilenet_v2/1/default/1',
         { fromTFHub: true }
@@ -76,7 +57,7 @@ class AmbulanceDetector {
       // Convert image to tensor
       const tensor = tf.browser.fromPixels(imageElement);
       
-      // Resize for better performance (640x480 matches YOLOv8 input size)
+      // Resize for better performance
       const resized = tf.image.resizeBilinear(tensor, [640, 480]);
       
       // Run detection
@@ -98,44 +79,18 @@ class AmbulanceDetector {
         if (scores[0][i] > this.confidenceThreshold) {
           const classId = Math.round(classes[0][i]);
           
-          // Check if this is one of our target vehicle classes
+          // Check if this is a bus (class 5) - ONLY allow buses which are potential ambulances
           if (this.targetClasses.includes(classId)) {
             const confidence = scores[0][i];
             
-            // Perform color analysis on the potential ambulance
-            const isLikelyAmbulance = this.analyzeVehicleForAmbulanceCharacteristics(
-              imageElement, 
-              boxes[0][i],
-              classId
-            );
-            
-            // Boost confidence if it looks like an ambulance
-            const adjustedConfidence = isLikelyAmbulance ? confidence * 1.25 : confidence * 0.7;
-            
-            if (adjustedConfidence > highestConfidence) {
-              highestConfidence = adjustedConfidence;
-              
-              // Set detected class name based on the class ID
-              switch (classId) {
-                case 3:
-                  detectedClassName = "car (potential ambulance)";
-                  break;
-                case 5:
-                  detectedClassName = "bus (potential ambulance)";
-                  break;
-                case 7:
-                case 8:
-                  detectedClassName = "truck (potential ambulance)";
-                  break;
-                default:
-                  detectedClassName = "vehicle";
+            // Only buses can be ambulances - hard requirement
+            if (classId === 5) {
+              // This is a bus with high confidence
+              if (confidence > highestConfidence) {
+                highestConfidence = confidence;
+                detectedClassName = "ambulance";
+                foundAmbulance = true;
               }
-              
-              // Simplify for user display
-              detectedClassName = "ambulance";
-              
-              // If it passed our ambulance-specific checks, mark it as found
-              foundAmbulance = isLikelyAmbulance;
             }
           }
         }
@@ -146,9 +101,6 @@ class AmbulanceDetector {
       tensor.dispose();
       resized.dispose();
       
-      // For demo purposes, adjust the detection logic to better detect ambulances based
-      // on shape and color analysis rather than just vehicle class
-      
       return {
         found: foundAmbulance,
         confidence: Math.min(1, highestConfidence), // Cap at 1
@@ -157,55 +109,12 @@ class AmbulanceDetector {
     } catch (error) {
       console.error("Detection error:", error);
       
-      // If there's an error, use the fallback detection logic
-      // This ensures the demo still works even if there are issues with the main detector
-      console.log("Using fallback detection logic");
-      return this.fallbackDetection();
-    }
-  }
-  
-  // If the main detection fails, use this as a fallback
-  private fallbackDetection(): { found: boolean; confidence: number; className: string } {
-    return {
-      found: true,
-      confidence: 0.8,
-      className: "ambulance (fallback)"
-    };
-  }
-  
-  // Analyze a detected vehicle to determine if it has ambulance characteristics
-  private analyzeVehicleForAmbulanceCharacteristics(
-    image: HTMLImageElement, 
-    bbox: number[], 
-    classId: number
-  ): boolean {
-    // This is a simplified version of actual ambulance detection
-    // In a real implementation, we'd perform:
-    // 1. Color analysis (check for red/blue/white areas)
-    // 2. Shape analysis (ambulances have distinctive shapes)
-    // 3. Text detection (search for "AMBULANCE", "EMERGENCY", etc.)
-    // 4. Light pattern detection (flashing light bar)
-    
-    try {
-      // This function would parse the image region and look for ambulance-specific
-      // characteristics. For simplicity in this demo, we'll use a probabilistic approach
-      // where buses (class 5) have highest chance of being ambulances
-      
-      // Higher probability for bus class (based on the Python code that treats ambulances as buses)
-      let baseProbability = classId === 5 ? 0.8 : 
-                           (classId === 3 ? 0.4 : 0.3);
-      
-      // Add some randomness for demo purposes
-      const randomFactor = Math.random() * 0.3;
-      
-      // Final probability - biased toward detection for demo purposes
-      const finalProbability = Math.min(1, baseProbability + randomFactor);
-      
-      // For demonstration, treat anything with >40% probability as an ambulance
-      return finalProbability > 0.4;
-    } catch (error) {
-      console.error("Error in ambulance characteristics analysis:", error);
-      return true; // Default to true for better demo experience
+      // Return not found in case of error
+      return {
+        found: false,
+        confidence: 0,
+        className: "no detection"
+      };
     }
   }
 }
@@ -359,16 +268,7 @@ class AmbulanceSirenDetector {
     } catch (error) {
       console.error("Error in siren detection:", error);
       
-      // Fallback for demo purposes
-      const shouldDetect = Math.random() < 0.15; // 15% chance of detection
-      
-      if (shouldDetect) {
-        return {
-          detected: true,
-          confidence: 0.7 + Math.random() * 0.25 // High confidence (0.7-0.95)
-        };
-      }
-      
+      // Always return false for error cases
       return {
         detected: false,
         confidence: 0
