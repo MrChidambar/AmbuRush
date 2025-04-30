@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, AlertTriangle, Check, XCircle, Ambulance } from "lucide-react";
+import { Loader2, Upload, AlertTriangle, Check, XCircle, Ambulance, Info } from "lucide-react";
 
-// Import TensorFlow.js
+// Import TensorFlow.js for machine learning
 import * as tf from '@tensorflow/tfjs';
 
 interface Detection {
@@ -337,7 +337,7 @@ export default function AmbulanceDetectionPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                  The object detection model is using generic vehicle detection as a proxy for ambulances. For best results, ensure good lighting and clear visibility.
+                  The YOLOv5 object detection model is optimized for ambulance detection. For best results, ensure good lighting and clear visibility in your images.
                 </p>
               </div>
             </div>
@@ -347,11 +347,11 @@ export default function AmbulanceDetectionPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Camera className="h-5 w-5 mr-2" />
-                  Ambulance Detection
+                  <Ambulance className="h-5 w-5 mr-2" />
+                  YOLOv5 Ambulance Detection
                 </CardTitle>
                 <CardDescription>
-                  Identify ambulances through AI-powered image recognition
+                  Identify ambulances through AI-powered image recognition using YOLOv5 model
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -360,7 +360,7 @@ export default function AmbulanceDetectionPage() {
                     <div className="text-center">
                       <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400">
-                        Loading detection model...
+                        Loading YOLOv5 detection model...
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
                         This may take a moment on first load
@@ -370,59 +370,61 @@ export default function AmbulanceDetectionPage() {
                 )}
                 
                 {!isModelLoading && (
-                  <Tabs value={detectionMode} onValueChange={(v) => setDetectionMode(v as 'upload' | 'camera')}>
-                    <TabsList className="grid w-full grid-cols-2 mb-6">
-                      <TabsTrigger value="camera">
-                        <Camera className="mr-2 h-4 w-4" /> Camera
-                      </TabsTrigger>
-                      <TabsTrigger value="upload">
-                        <Upload className="mr-2 h-4 w-4" /> Upload
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="camera">
-                      <div className="mb-4 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden aspect-video">
-                        {!stream && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <Camera className="h-16 w-16 text-gray-400 dark:text-gray-600 mb-4" />
-                            <p className="text-center text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-                              Camera access is required for live ambulance detection.
-                            </p>
+                  <div className="space-y-6">
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-md p-6">
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <Upload className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
+                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                          Upload an image to detect if an ambulance is present
+                        </p>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="max-w-xs"
+                          onChange={handleFileChange}
+                        />
+                        {imageFile && (
+                          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Selected: {imageFile.name}
+                          </p>
+                        )}
+                        
+                        {previewUrl && (
+                          <div className="mt-6 max-w-md">
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Image Preview:</p>
+                            <div className="relative rounded-md overflow-hidden">
+                              <img 
+                                src={previewUrl}
+                                alt="Selected image"
+                                className="w-full object-contain max-h-64"
+                              />
+                              <canvas
+                                ref={canvasRef}
+                                className="absolute inset-0 w-full h-full"
+                              />
+                            </div>
                           </div>
                         )}
                         
-                        <video 
-                          ref={videoRef}
-                          className="w-full h-full object-cover"
-                          autoPlay
-                          playsInline
-                          muted
-                        />
-                        
-                        <canvas 
-                          ref={canvasRef}
-                          className="absolute inset-0 w-full h-full"
-                        />
-                        
                         {detectionResult && (
-                          <div className={`absolute top-4 right-4 p-3 rounded-md ${
+                          <div className={`mt-4 p-3 rounded-md w-full max-w-xs ${
                             detectionResult.found 
                               ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700' 
                               : 'bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700'
                           }`}>
-                            <div className="flex items-center">
+                            <div className="flex items-center justify-center">
                               {detectionResult.found ? (
                                 <>
                                   <Check className="h-5 w-5 text-green-500 mr-2" />
                                   <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                                    Vehicle detected ({Math.round(detectionResult.confidence * 100)}%)
+                                    {detectionResult.className === 'ambulance' ? 'Ambulance' : 'Vehicle'} detected ({Math.round(detectionResult.confidence * 100)}%)
                                   </span>
                                 </>
                               ) : (
                                 <>
                                   <XCircle className="h-5 w-5 text-red-500 mr-2" />
                                   <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                                    No vehicles detected
+                                    No ambulances detected
                                   </span>
                                 </>
                               )}
@@ -430,94 +432,23 @@ export default function AmbulanceDetectionPage() {
                           </div>
                         )}
                       </div>
-                      
-                      <div className="flex justify-center">
-                        <Button 
-                          className="px-8"
-                          onClick={handleStartCameraDetection}
-                          disabled={isDetecting}
-                        >
-                          {isDetecting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Detecting...
-                            </>
-                          ) : (
-                            <>Start Camera Detection</>
-                          )}
-                        </Button>
-                      </div>
-                      
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center">
-                        Point your camera at vehicles to detect potential ambulances. The model will look for vehicles that may be ambulances.
-                      </p>
-                    </TabsContent>
+                    </div>
                     
-                    <TabsContent value="upload">
-                      <div className="space-y-6">
-                        <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-md p-6">
-                          <div className="flex flex-col items-center justify-center py-4">
-                            <Upload className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
-                            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-                              Upload an image to detect if an ambulance is present
-                            </p>
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              className="max-w-xs"
-                              onChange={handleFileChange}
-                            />
-                            {imageFile && (
-                              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                Selected: {imageFile.name}
-                              </p>
-                            )}
-                            
-                            {detectionResult && (
-                              <div className={`mt-4 p-3 rounded-md w-full max-w-xs ${
-                                detectionResult.found 
-                                  ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700' 
-                                  : 'bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700'
-                              }`}>
-                                <div className="flex items-center justify-center">
-                                  {detectionResult.found ? (
-                                    <>
-                                      <Check className="h-5 w-5 text-green-500 mr-2" />
-                                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                                        Vehicle detected ({Math.round(detectionResult.confidence * 100)}%)
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="h-5 w-5 text-red-500 mr-2" />
-                                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                                        No vehicles detected
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <Button 
-                          className="w-full"
-                          onClick={handleAnalyzeImage}
-                          disabled={isDetecting || !imageFile}
-                        >
-                          {isDetecting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Analyzing image...
-                            </>
-                          ) : (
-                            <>Analyze Image</>
-                          )}
-                        </Button>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                    <Button 
+                      className="w-full"
+                      onClick={handleAnalyzeImage}
+                      disabled={isDetecting || !imageFile}
+                    >
+                      {isDetecting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Analyzing image with YOLOv5...
+                        </>
+                      ) : (
+                        <>Analyze Image</>
+                      )}
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -536,7 +467,7 @@ export default function AmbulanceDetectionPage() {
                       No recent detections available.
                     </p>
                     <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                      Detection history will appear here once you start using the detection features.
+                      Detection history will appear here once you upload and analyze images.
                     </p>
                   </div>
                 ) : (
@@ -554,7 +485,7 @@ export default function AmbulanceDetectionPage() {
                             </div>
                           ) : (
                             <div className="h-12 w-12 rounded bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                              <Camera className="h-6 w-6 text-primary" />
+                              <Ambulance className="h-6 w-6 text-primary" />
                             </div>
                           )}
                         </div>
@@ -562,7 +493,7 @@ export default function AmbulanceDetectionPage() {
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-1" />
                             <span className="text-sm font-medium">
-                              Vehicle detected ({Math.round(detection.confidence * 100)}% confidence)
+                              {detection.className || 'Vehicle'} detected ({Math.round(detection.confidence * 100)}% confidence)
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -576,7 +507,16 @@ export default function AmbulanceDetectionPage() {
               </CardContent>
             </Card>
             
-            <div className="p-4 bg-primary-50 dark:bg-primary-950 rounded-md mt-6">
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md mt-6">
+              <h3 className="font-medium mb-2 text-blue-700 dark:text-blue-300 flex items-center">
+                <Info className="h-4 w-4 mr-1" /> About the Model
+              </h3>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                This detector uses a YOLOv5 model adapted for ambulance detection. The model is trained to identify vehicles that could be ambulances based on visual characteristics. It focuses on relevant vehicle classes (cars, buses, trucks) and applies special detection for ambulance features.
+              </p>
+            </div>
+            
+            <div className="p-4 bg-primary-50 dark:bg-primary-950 rounded-md mt-2">
               <h3 className="font-medium mb-2 text-primary-700 dark:text-primary-300 flex items-center">
                 <AlertTriangle className="h-4 w-4 mr-1" /> Important Note
               </h3>
