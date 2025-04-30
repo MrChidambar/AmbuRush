@@ -5,6 +5,14 @@ import { setupAuth, hashPassword } from "./auth";
 import { ambulanceTypes, hospitals, insertBookingSchema, patientDetailsSchema, emergencyContactSchema } from "@shared/schema";
 import { sendBookingNotification } from "./services/notification";
 import { z } from "zod";
+import { 
+  getFastestRoute, 
+  getAlternativeRoutes, 
+  isAmbulanceNearTrafficSignal,
+  overrideTrafficSignal,
+  initializeMockTrafficSignals,
+  GeoCoordinate 
+} from "./services/route-optimizer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -365,6 +373,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedBooking);
     } catch (error) {
       res.status(500).json({ message: "Failed to update booking status" });
+    }
+  });
+
+  // AI-Powered Route Optimization API Endpoints
+  
+  // Initialize mock traffic signals around Bangalore (for testing)
+  initializeMockTrafficSignals({ latitude: 12.9716, longitude: 77.5946 });
+  
+  // Get fastest route
+  app.get("/api/route/fastest", async (req, res) => {
+    try {
+      const startLat = parseFloat(req.query.startLat as string);
+      const startLng = parseFloat(req.query.startLng as string);
+      const endLat = parseFloat(req.query.endLat as string);
+      const endLng = parseFloat(req.query.endLng as string);
+      const isEmergency = req.query.emergency === 'true';
+      
+      if (isNaN(startLat) || isNaN(startLng) || isNaN(endLat) || isNaN(endLng)) {
+        return res.status(400).json({ message: "Invalid coordinates" });
+      }
+      
+      const startLocation: GeoCoordinate = { latitude: startLat, longitude: startLng };
+      const endLocation: GeoCoordinate = { latitude: endLat, longitude: endLng };
+      
+      const route = await getFastestRoute(startLocation, endLocation, isEmergency);
+      res.json(route);
+    } catch (error) {
+      console.error("Error calculating fastest route:", error);
+      res.status(500).json({ message: "Failed to calculate route" });
+    }
+  });
+  
+  // Get alternative routes
+  app.get("/api/route/alternatives", async (req, res) => {
+    try {
+      const startLat = parseFloat(req.query.startLat as string);
+      const startLng = parseFloat(req.query.startLng as string);
+      const endLat = parseFloat(req.query.endLat as string);
+      const endLng = parseFloat(req.query.endLng as string);
+      const isEmergency = req.query.emergency === 'true';
+      
+      if (isNaN(startLat) || isNaN(startLng) || isNaN(endLat) || isNaN(endLng)) {
+        return res.status(400).json({ message: "Invalid coordinates" });
+      }
+      
+      const startLocation: GeoCoordinate = { latitude: startLat, longitude: startLng };
+      const endLocation: GeoCoordinate = { latitude: endLat, longitude: endLng };
+      
+      const routes = await getAlternativeRoutes(startLocation, endLocation, isEmergency);
+      res.json(routes);
+    } catch (error) {
+      console.error("Error calculating alternative routes:", error);
+      res.status(500).json({ message: "Failed to calculate routes" });
+    }
+  });
+  
+  // Check if ambulance is near traffic signal
+  app.get("/api/route/traffic-signal-check", (req, res) => {
+    try {
+      const latitude = parseFloat(req.query.lat as string);
+      const longitude = parseFloat(req.query.lng as string);
+      const signalId = req.query.signalId as string;
+      
+      if (isNaN(latitude) || isNaN(longitude)) {
+        return res.status(400).json({ message: "Invalid coordinates" });
+      }
+      
+      const ambulanceLocation: GeoCoordinate = { latitude, longitude };
+      const isNear = isAmbulanceNearTrafficSignal(ambulanceLocation, signalId);
+      
+      res.json({ isNear });
+    } catch (error) {
+      console.error("Error checking traffic signal proximity:", error);
+      res.status(500).json({ message: "Failed to check traffic signal" });
+    }
+  });
+  
+  // Override traffic signal (emergency vehicles only)
+  app.post("/api/route/override-traffic-signal", (req, res) => {
+    try {
+      const { signalId, ambulanceId } = req.body;
+      
+      if (!signalId || !ambulanceId) {
+        return res.status(400).json({ message: "Signal ID and ambulance ID are required" });
+      }
+      
+      // Check if user is authorized (driver or admin)
+      if (req.user!.role !== "driver" && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const success = overrideTrafficSignal(signalId, ambulanceId);
+      
+      if (!success) {
+        return res.status(400).json({ message: "Failed to override traffic signal" });
+      }
+      
+      res.json({ success: true, message: "Traffic signal overridden successfully" });
+    } catch (error) {
+      console.error("Error overriding traffic signal:", error);
+      res.status(500).json({ message: "Failed to override traffic signal" });
     }
   });
 
