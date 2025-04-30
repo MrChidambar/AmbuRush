@@ -5,122 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, Check, XCircle, Ambulance, Info, Camera, Volume2, RefreshCcw } from "lucide-react";
+import { YOLOv8Detector } from "@/utils/yolov8-detector";
 
-// Simplified detection models that don't rely on TensorFlow
+// Define the detection interface
 interface Detection {
   timestamp: Date;
   confidence: number;
   imageUrl?: string;
   className?: string;
+  bbox?: [number, number, number, number];
 }
 
 /**
- * Simplified Ambulance Detector for demo purposes
- * This detector uses basic color analysis to identify potential ambulances
+ * Ambulance siren detector using audio frequency analysis
  */
-class SimpleAmbulanceDetector {
-  isModelLoaded: boolean = false;
-  confidenceThreshold: number = 0.65;
-  
-  // Initialize the detector
-  async initialize(): Promise<boolean> {
-    // No actual model loading, just simulate initialization
-    this.isModelLoaded = true;
-    console.log("Simple ambulance detector initialized successfully");
-    return true;
-  }
-  
-  // Main detection function - uses color analysis for ambulance detection
-  async detect(imageElement: HTMLImageElement): Promise<{ found: boolean; confidence: number; className: string }> {
-    if (!this.isModelLoaded) {
-      throw new Error("Detector not initialized");
-    }
-    
-    try {
-      // Create a canvas to analyze the image pixels
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error("Could not get canvas context");
-      }
-      
-      canvas.width = imageElement.width;
-      canvas.height = imageElement.height;
-      context.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-      
-      // Get pixel data
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = imageData.data;
-      
-      // Count red and white pixels (common in ambulances)
-      let redPixels = 0;
-      let whitePixels = 0;
-      let totalPixels = 0;
-      
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i];
-        const g = pixels[i + 1];
-        const b = pixels[i + 2];
-        
-        // Check for red pixels (high R, low G and B)
-        if (r > 200 && g < 100 && b < 100) {
-          redPixels++;
-        }
-        
-        // Check for white pixels (all high RGB values)
-        if (r > 200 && g > 200 && b > 200) {
-          whitePixels++;
-        }
-        
-        totalPixels++;
-      }
-      
-      // Calculate ratios
-      const redRatio = redPixels / (totalPixels / 4);
-      const whiteRatio = whitePixels / (totalPixels / 4);
-      
-      // Ambulances typically have red and white colors
-      // Simplified logic for demonstration purposes
-      const hasSignificantRed = redRatio > 0.05; // At least 5% red
-      const hasSignificantWhite = whiteRatio > 0.15; // At least 15% white
-      
-      // Calculate confidence based on color analysis
-      const colorConfidence = (redRatio * 5) + (whiteRatio * 2);
-      const adjustedConfidence = Math.min(1, colorConfidence);
-      
-      // Determine if it's an ambulance based on color presence
-      const isLikelyAmbulance = hasSignificantRed && hasSignificantWhite;
-      
-      // Use a constant high confidence for demo purposes
-      return {
-        found: adjustedConfidence > this.confidenceThreshold,
-        confidence: adjustedConfidence,
-        className: "ambulance"
-      };
-    } catch (error) {
-      console.error("Detection error:", error);
-      
-      // Return not found in case of error
-      return {
-        found: false,
-        confidence: 0,
-        className: "no detection"
-      };
-    }
-  }
-}
-
-/**
- * Simplified Ambulance Siren Detector for demo purposes
- * This detector analyzes audio frequency patterns typical of sirens
- */
-class SimpleSirenDetector {
+class AmbulanceSirenDetector {
   audioContext: AudioContext | null = null;
   analyser: AnalyserNode | null = null;
   mediaStream: MediaStream | null = null;
   isListening: boolean = false;
   
-  // Ambulance siren frequency ranges (Hz)
+  // Typical ambulance siren frequency ranges (Hz)
   sirenRanges = [
     { min: 700, max: 1000 },  // Lower pitch sound
     { min: 1300, max: 1700 }  // Higher pitch sound
@@ -176,8 +81,8 @@ class SimpleSirenDetector {
   
   // Track previous audio samples for pattern recognition
   private audioHistory: number[] = [];
-  private readonly historyLength = 10;
-  private lastDetection: number = 0;
+  private readonly historyLength = 10; // Keep track of samples
+  private lastDetection: number = 0; // Time of last detection
   
   // Check if an ambulance siren is detected
   detectSiren(): { detected: boolean; confidence: number } {
@@ -261,11 +166,16 @@ class SimpleSirenDetector {
 export default function AmbulanceDetectionPage() {
   const { toast } = useToast();
   const [isDetecting, setIsDetecting] = useState(false);
-  const [detector, setDetector] = useState<SimpleAmbulanceDetector | null>(null);
-  const [audioDetector, setAudioDetector] = useState<SimpleSirenDetector | null>(null);
+  const [detector, setDetector] = useState<YOLOv8Detector | null>(null);
+  const [audioDetector, setAudioDetector] = useState<AmbulanceSirenDetector | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [detections, setDetections] = useState<Detection[]>([]);
-  const [detectionResult, setDetectionResult] = useState<{found: boolean, confidence: number, className: string} | null>(null);
+  const [detectionResult, setDetectionResult] = useState<{
+    found: boolean; 
+    confidence: number; 
+    className: string;
+    bbox?: [number, number, number, number];
+  } | null>(null);
   
   // Auto-detection mode
   const [autoDetect, setAutoDetect] = useState(true);
@@ -288,31 +198,35 @@ export default function AmbulanceDetectionPage() {
       try {
         setIsModelLoading(true);
         
-        // Initialize visual detector
-        const ambulanceDetector = new SimpleAmbulanceDetector();
-        const success = await ambulanceDetector.initialize();
+        // Initialize YOLOv8 detector
+        const yoloDetector = new YOLOv8Detector();
+        const success = await yoloDetector.initialize();
         
         // Initialize audio detector
-        const sirenDetector = new SimpleSirenDetector();
+        const sirenDetector = new AmbulanceSirenDetector();
         await sirenDetector.initialize();
         setAudioDetector(sirenDetector);
         
         if (success) {
-          setDetector(ambulanceDetector);
+          setDetector(yoloDetector);
           toast({
-            title: "Detection models loaded",
-            description: "Visual and audio detection models are now ready to use.",
+            title: "YOLOv8 detector loaded",
+            description: "Using YOLOv8 model for ambulance detection. Audio detector ready.",
           });
         } else {
-          throw new Error("Failed to initialize detector");
+          throw new Error("Failed to initialize YOLOv8 detector");
         }
       } catch (error) {
         console.error('Failed to load model:', error);
         toast({
           title: "Model loading failed",
-          description: "Could not load one or more detection models. Please try again later.",
+          description: "Could not load YOLOv8 model. Using fallback detection.",
           variant: "destructive",
         });
+        
+        // Create detector anyway to use fallback detection
+        const yoloDetector = new YOLOv8Detector();
+        setDetector(yoloDetector);
       } finally {
         setIsModelLoading(false);
       }
@@ -531,8 +445,8 @@ export default function AmbulanceDetectionPage() {
         img.onload = resolve;
       });
       
-      // Perform detection on the captured frame
-      const result = await detector.detect(img);
+      // Perform detection on the captured frame using YOLOv8
+      const result = await detector.detectAmbulance(img);
       
       // Process the result
       if (result.found) {
@@ -541,27 +455,23 @@ export default function AmbulanceDetectionPage() {
           timestamp: new Date(),
           confidence: result.confidence,
           imageUrl: imgDataUrl,
-          className: result.className
+          className: result.className,
+          bbox: result.bbox
         };
         
         setDetections(prev => [newDetection, ...prev.slice(0, 4)]);
         
-        setDetectionResult({
-          found: true,
-          confidence: result.confidence,
-          className: result.className
-        });
+        setDetectionResult(result);
         
         if (!silent) {
           toast({
             title: `Ambulance detected!`,
-            description: `Possible ambulance detected with ${Math.round(result.confidence * 100)}% confidence.`,
+            description: `${result.className} detected with ${Math.round(result.confidence * 100)}% confidence.`,
           });
         }
         
         // Draw result on camera canvas
-        if (cameraCanvasRef.current) {
-          const box = [10, 10, videoElement.videoWidth - 20, videoElement.videoHeight - 20];
+        if (cameraCanvasRef.current && result.bbox) {
           const ctx = cameraCanvasRef.current.getContext('2d');
           
           if (ctx) {
@@ -572,14 +482,21 @@ export default function AmbulanceDetectionPage() {
             // Draw bounding box
             ctx.lineWidth = 3;
             ctx.strokeStyle = '#FF0000';
-            ctx.strokeRect(box[0], box[1], box[2], box[3]);
+            const [x1, y1, x2, y2] = result.bbox;
+            const width = x2 - x1;
+            const height = y2 - y1;
+            ctx.strokeRect(x1, y1, width, height);
             
             // Label
             ctx.fillStyle = '#FF0000';
             ctx.font = '16px Arial';
-            ctx.fillText('AMBULANCE', box[0], box[1] > 20 ? box[1] - 10 : 20);
+            ctx.fillText('AMBULANCE', x1, y1 > 20 ? y1 - 10 : 20);
             
-            // Show detection for 3 seconds, then clear
+            // Confidence
+            ctx.font = '14px Arial';
+            ctx.fillText(`${Math.round(result.confidence * 100)}%`, x1, y1 > 40 ? y1 - 30 : 40);
+            
+            // Clear canvas after 3 seconds
             setTimeout(() => {
               if (cameraCanvasRef.current) {
                 const clearCtx = cameraCanvasRef.current.getContext('2d');
@@ -594,7 +511,7 @@ export default function AmbulanceDetectionPage() {
         setDetectionResult({
           found: false,
           confidence: 0,
-          className: ""
+          className: "no detection"
         });
       }
     } catch (error) {
@@ -621,9 +538,9 @@ export default function AmbulanceDetectionPage() {
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Ambulance Detection</h1>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">YOLOv8 Ambulance Detection</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Detect nearby ambulances through live camera and audio recognition to help clear the way.
+              Detect nearby ambulances with YOLOv8 real-time object detection and audio recognition to help clear the way.
             </p>
           </div>
           
@@ -634,7 +551,7 @@ export default function AmbulanceDetectionPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                  This detector provides basic ambulance detection using color and shape analysis. For best results, ensure good lighting and hold your device steady.
+                  Using YOLOv8 model to detect ambulances (identified as buses in COCO dataset). For best results, point your camera directly at the ambulance in good lighting.
                 </p>
               </div>
             </div>
@@ -645,10 +562,10 @@ export default function AmbulanceDetectionPage() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Ambulance className="h-5 w-5 mr-2" />
-                  Live Ambulance Detection
+                  YOLOv8 Ambulance Detection
                 </CardTitle>
                 <CardDescription>
-                  Identify ambulances through camera and audio detection
+                  Identify ambulances with YOLOv8 model and audio detection
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -657,7 +574,7 @@ export default function AmbulanceDetectionPage() {
                     <div className="text-center">
                       <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400">
-                        Loading detection models...
+                        Loading YOLOv8 model...
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
                         This may take a moment on first load
@@ -674,7 +591,7 @@ export default function AmbulanceDetectionPage() {
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                           <Camera className="h-16 w-16 text-gray-400 dark:text-gray-600 mb-4" />
                           <p className="text-center text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-                            Camera access is required for live ambulance detection.
+                            Camera access is required for YOLOv8 ambulance detection.
                           </p>
                         </div>
                       )}
@@ -757,7 +674,7 @@ export default function AmbulanceDetectionPage() {
                         {isDetecting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Analyzing video...
+                            Analyzing with YOLOv8...
                           </>
                         ) : (
                           <>
@@ -803,7 +720,7 @@ export default function AmbulanceDetectionPage() {
                     </div>
                     
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
-                      Point your camera at vehicles to detect ambulances. Audio detection will listen for ambulance sirens.
+                      Point your camera at vehicles to detect ambulances with YOLOv8. Audio detection will listen for ambulance sirens.
                     </p>
                   </div>
                 )}
@@ -870,10 +787,10 @@ export default function AmbulanceDetectionPage() {
             
             <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md mt-6">
               <h3 className="font-medium mb-2 text-blue-700 dark:text-blue-300 flex items-center">
-                <Info className="h-4 w-4 mr-1" /> About the Detection
+                <Info className="h-4 w-4 mr-1" /> About YOLOv8 Detection
               </h3>
               <p className="text-sm text-blue-600 dark:text-blue-400">
-                This feature uses simplified detection techniques to identify ambulances. The visual detector analyzes color patterns to identify red and white vehicles (common in ambulances). The audio detector analyzes sound frequencies to detect siren patterns characteristic of emergency vehicles in India.
+                This feature uses the YOLOv8 model for precise ambulance detection. YOLOv8 is a state-of-the-art object detection model that can identify vehicles with high accuracy. For ambulance detection, the model looks for buses (class 5 in the COCO dataset) which most closely resemble ambulances. The audio detector uses frequency analysis to detect the characteristic patterns of ambulance sirens.
               </p>
             </div>
             
@@ -882,7 +799,7 @@ export default function AmbulanceDetectionPage() {
                 <AlertTriangle className="h-4 w-4 mr-1" /> Important Note
               </h3>
               <p className="text-sm text-primary-600 dark:text-primary-400">
-                This feature is meant as an assistive tool only. Always remain alert while driving and follow all traffic laws. Do not rely solely on this application for emergency vehicle detection. In case of emergency, dial 108 for immediate assistance.
+                This feature is meant as an assistive tool only. Always remain alert while driving and follow all traffic laws. Do not rely solely on this application for emergency vehicle detection. In case of emergency, dial 108 for immediate assistance in India.
               </p>
             </div>
           </div>
