@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, Check, XCircle, Ambulance, Info, Camera, Volume2, RefreshCcw } from "lucide-react";
-import { YOLOv8Detector } from "@/utils/yolov8-detector";
+import { AmbulanceDetector } from "@/utils/ambulance-detector";
 
 // Define the detection interface
 interface Detection {
@@ -166,7 +166,7 @@ class AmbulanceSirenDetector {
 export default function AmbulanceDetectionPage() {
   const { toast } = useToast();
   const [isDetecting, setIsDetecting] = useState(false);
-  const [detector, setDetector] = useState<YOLOv8Detector | null>(null);
+  const [detector, setDetector] = useState<AmbulanceDetector | null>(null);
   const [audioDetector, setAudioDetector] = useState<AmbulanceSirenDetector | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [detections, setDetections] = useState<Detection[]>([]);
@@ -198,9 +198,9 @@ export default function AmbulanceDetectionPage() {
       try {
         setIsModelLoading(true);
         
-        // Initialize YOLOv8 detector
-        const yoloDetector = new YOLOv8Detector();
-        const success = await yoloDetector.initialize();
+        // Initialize TensorFlow detector for ambulance detection
+        const ambulanceDetector = new AmbulanceDetector();
+        const success = await ambulanceDetector.initialize();
         
         // Initialize audio detector
         const sirenDetector = new AmbulanceSirenDetector();
@@ -208,25 +208,25 @@ export default function AmbulanceDetectionPage() {
         setAudioDetector(sirenDetector);
         
         if (success) {
-          setDetector(yoloDetector);
+          setDetector(ambulanceDetector);
           toast({
-            title: "YOLOv8 detector loaded",
-            description: "Using YOLOv8 model for ambulance detection. Audio detector ready.",
+            title: "Ambulance detector loaded",
+            description: "Using TensorFlow model for ambulance detection. Audio detector ready.",
           });
         } else {
-          throw new Error("Failed to initialize YOLOv8 detector");
+          throw new Error("Failed to initialize ambulance detector");
         }
       } catch (error) {
         console.error('Failed to load model:', error);
         toast({
           title: "Model loading failed",
-          description: "Could not load YOLOv8 model. Using fallback detection.",
+          description: "Using fallback color-based detection instead.",
           variant: "destructive",
         });
         
         // Create detector anyway to use fallback detection
-        const yoloDetector = new YOLOv8Detector();
-        setDetector(yoloDetector);
+        const ambulanceDetector = new AmbulanceDetector();
+        setDetector(ambulanceDetector);
       } finally {
         setIsModelLoading(false);
       }
@@ -538,9 +538,9 @@ export default function AmbulanceDetectionPage() {
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">YOLOv8 Ambulance Detection</h1>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Ambulance Detection</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Detect nearby ambulances with YOLOv8 real-time object detection and audio recognition to help clear the way.
+              Detect nearby ambulances with TensorFlow.js real-time object detection and audio recognition to help clear the way.
             </p>
           </div>
           
@@ -551,7 +551,7 @@ export default function AmbulanceDetectionPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                  Using YOLOv8 model to detect ambulances (identified as buses in COCO dataset). For best results, point your camera directly at the ambulance in good lighting.
+                  Using TensorFlow.js model to detect ambulances (identified as buses in COCO dataset). For best results, point your camera directly at the ambulance in good lighting.
                 </p>
               </div>
             </div>
@@ -562,10 +562,10 @@ export default function AmbulanceDetectionPage() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Ambulance className="h-5 w-5 mr-2" />
-                  YOLOv8 Ambulance Detection
+                  TensorFlow Ambulance Detection
                 </CardTitle>
                 <CardDescription>
-                  Identify ambulances with YOLOv8 model and audio detection
+                  Identify ambulances with TensorFlow.js model and audio detection
                 </CardDescription>
               </CardHeader>
               <CardContent>
