@@ -574,7 +574,7 @@ export default function AmbulanceDetectionPage() {
                     <div className="text-center">
                       <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400">
-                        Loading YOLOv8 model...
+                        Loading TensorFlow.js model...
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
                         This may take a moment on first load
@@ -591,7 +591,7 @@ export default function AmbulanceDetectionPage() {
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                           <Camera className="h-16 w-16 text-gray-400 dark:text-gray-600 mb-4" />
                           <p className="text-center text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-                            Camera access is required for YOLOv8 ambulance detection.
+                            Camera access is required for ambulance detection.
                           </p>
                         </div>
                       )}
@@ -674,7 +674,7 @@ export default function AmbulanceDetectionPage() {
                         {isDetecting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Analyzing with YOLOv8...
+                            Analyzing with TensorFlow...
                           </>
                         ) : (
                           <>
@@ -720,7 +720,7 @@ export default function AmbulanceDetectionPage() {
                     </div>
                     
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
-                      Point your camera at vehicles to detect ambulances with YOLOv8. Audio detection will listen for ambulance sirens.
+                      Point your camera at vehicles to detect ambulances with TensorFlow.js. Audio detection will listen for ambulance sirens.
                     </p>
                   </div>
                 )}
@@ -787,10 +787,10 @@ export default function AmbulanceDetectionPage() {
             
             <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md mt-6">
               <h3 className="font-medium mb-2 text-blue-700 dark:text-blue-300 flex items-center">
-                <Info className="h-4 w-4 mr-1" /> About YOLOv8 Detection
+                <Info className="h-4 w-4 mr-1" /> About Ambulance Detection
               </h3>
               <p className="text-sm text-blue-600 dark:text-blue-400">
-                This feature uses the YOLOv8 model for precise ambulance detection. YOLOv8 is a state-of-the-art object detection model that can identify vehicles with high accuracy. For ambulance detection, the model looks for buses (class 5 in the COCO dataset) which most closely resemble ambulances. The audio detector uses frequency analysis to detect the characteristic patterns of ambulance sirens.
+                This feature uses TensorFlow.js for ambulance detection, inspired by the AmbuRouteAI system. The detection model identifies vehicles that match ambulance characteristics, focusing on buses (class 5 in the COCO dataset) which most closely resemble ambulances in shape. The audio detector uses frequency analysis to detect the characteristic patterns of ambulance sirens. A color-based detection system also looks for the typical red and white patterns of Indian ambulances.
               </p>
             </div>
             
