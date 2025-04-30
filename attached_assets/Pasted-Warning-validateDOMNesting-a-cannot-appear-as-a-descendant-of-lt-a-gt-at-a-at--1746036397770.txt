@@ -1,0 +1,49 @@
+Warning: validateDOMNesting(...): <a> cannot appear as a descendant of &lt;a&gt;.
+    at a
+    at a
+    at https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89f864d0:337:18
+    at div
+    at div
+    at div
+    at div
+    at header
+    at AppHeader (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/src/components/layout/app-header.tsx:35:22)
+    at div
+    at HomePage (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/src/pages/home-page.tsx:33:41)
+    at Route (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89f864d0:323:16)
+    at Switch (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89f864d0:379:17)
+    at Router
+    at Provider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-GFOGKHJ2.js?v=91c47629:22:15)
+    at TooltipProvider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=c613d528:61:5)
+    at AuthProvider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/src/hooks/use-auth.tsx:26:32)
+    at QueryClientProvider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=e5a9705e:2805:3)
+    at App
+    at V (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=d3154c04:44:25)
+    at J (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=d3154c04:42:18)
+at a
+at a
+at https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89f864d0:337:18
+at div
+at div
+at div
+at div
+at header
+at AppHeader (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/src/components/layout/app-header.tsx:35:22)
+at div
+at HomePage (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/src/pages/home-page.tsx:33:41)
+at Route (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89f864d0:323:16)
+at Switch (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89f864d0:379:17)
+at Router
+at Provider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-GFOGKHJ2.js?v=91c47629:22:15)
+at TooltipProvider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=c613d528:61:5)
+at AuthProvider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/src/hooks/use-auth.tsx:26:32)
+at QueryClientProvider (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=e5a9705e:2805:3)
+at App
+at V (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=d3154c04:44:25)
+at J (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/next-themes.js?v=d3154c04:42:18)
+at t.value (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Ambulance detector model initialized successfully
+Auto-detection mode activated
