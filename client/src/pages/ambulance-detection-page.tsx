@@ -4,8 +4,9 @@ import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, AlertTriangle, Check, XCircle, Ambulance, Info } from "lucide-react";
+import { Loader2, Upload, AlertTriangle, Check, XCircle, Ambulance, Info, Camera, Volume2 } from "lucide-react";
 
 // Import TensorFlow.js for machine learning
 import * as tf from '@tensorflow/tfjs';
@@ -145,34 +146,159 @@ class AmbulanceDetector {
   }
 }
 
+/**
+ * Ambulance siren detector using audio frequency analysis
+ */
+class AmbulanceSirenDetector {
+  audioContext: AudioContext | null = null;
+  analyser: AnalyserNode | null = null;
+  mediaStream: MediaStream | null = null;
+  isListening: boolean = false;
+  
+  // Ambulance siren frequency ranges (Hz) - typical ambulance sirens have frequencies
+  // in these ranges with alternating patterns
+  sirenRanges = [
+    { min: 700, max: 1000 },  // Lower pitch sound
+    { min: 1300, max: 1700 }  // Higher pitch sound
+  ];
+  
+  // Detection sensitivity threshold (0-1)
+  threshold = 0.6;
+  
+  // Initialize audio context and analyzer
+  async initialize(): Promise<boolean> {
+    try {
+      this.audioContext = new AudioContext();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 2048;
+      
+      // Improve frequency resolution
+      this.analyser.smoothingTimeConstant = 0.85;
+      
+      return true;
+    } catch (error) {
+      console.error("Failed to initialize audio detector:", error);
+      return false;
+    }
+  }
+  
+  // Start listening for ambulance sirens
+  async startListening(): Promise<boolean> {
+    if (!this.audioContext || !this.analyser) {
+      await this.initialize();
+    }
+    
+    try {
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const source = this.audioContext!.createMediaStreamSource(this.mediaStream);
+      source.connect(this.analyser!);
+      
+      this.isListening = true;
+      return true;
+    } catch (error) {
+      console.error("Failed to access microphone:", error);
+      return false;
+    }
+  }
+  
+  // Stop listening
+  stopListening(): void {
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+    this.isListening = false;
+  }
+  
+  // Check if an ambulance siren is detected
+  detectSiren(): { detected: boolean; confidence: number } {
+    if (!this.analyser || !this.isListening) {
+      return { detected: false, confidence: 0 };
+    }
+    
+    // Get frequency data
+    const bufferLength = this.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    this.analyser.getByteFrequencyData(dataArray);
+    
+    // Calculate frequency resolution
+    const sampleRate = this.audioContext!.sampleRate;
+    const frequencyResolution = sampleRate / this.analyser.fftSize;
+    
+    // Check for patterns in the relevant frequency ranges
+    let detectionScore = 0;
+    
+    // Check each siren range
+    for (const range of this.sirenRanges) {
+      // Convert frequencies to indices in the frequency data array
+      const minIndex = Math.floor(range.min / frequencyResolution);
+      const maxIndex = Math.ceil(range.max / frequencyResolution);
+      
+      // Calculate average energy in this range
+      let sum = 0;
+      for (let i = minIndex; i <= maxIndex; i++) {
+        if (i < dataArray.length) {
+          sum += dataArray[i];
+        }
+      }
+      
+      const avgEnergy = sum / (maxIndex - minIndex + 1) / 255;
+      
+      // Add to detection score, giving more weight to stronger signals
+      detectionScore += avgEnergy * avgEnergy;
+    }
+    
+    // Normalize score
+    detectionScore = detectionScore / this.sirenRanges.length;
+    
+    return {
+      detected: detectionScore > this.threshold,
+      confidence: Math.min(1, detectionScore)
+    };
+  }
+}
+
 export default function AmbulanceDetectionPage() {
   const { toast } = useToast();
   const [isDetecting, setIsDetecting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [detector, setDetector] = useState<AmbulanceDetector | null>(null);
+  const [audioDetector, setAudioDetector] = useState<AmbulanceSirenDetector | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [detections, setDetections] = useState<Detection[]>([]);
   const [detectionResult, setDetectionResult] = useState<{found: boolean, confidence: number, className: string} | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [detectionMode, setDetectionMode] = useState<'upload' | 'camera' | 'audio'>('upload');
+  const [isListeningForSiren, setIsListeningForSiren] = useState(false);
+  const [sirenDetected, setSirenDetected] = useState(false);
+  const [sirenConfidence, setSirenConfidence] = useState(0);
   
-  // Canvas ref for drawing detection results
+  // Refs for media elements
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
-  // Load YOLOv5 model
+  // Load YOLOv5 model and audio detector
   useEffect(() => {
     async function loadModel() {
       try {
         setIsModelLoading(true);
         
-        // Initialize the detector
+        // Initialize the visual detector
         const ambulanceDetector = new AmbulanceDetector();
         const success = await ambulanceDetector.initialize();
+        
+        // Initialize the audio detector
+        const sirenDetector = new AmbulanceSirenDetector();
+        await sirenDetector.initialize();
+        setAudioDetector(sirenDetector);
         
         if (success) {
           setDetector(ambulanceDetector);
           toast({
-            title: "YOLOv5 detection model loaded",
-            description: "The ambulance detection model is now ready to use.",
+            title: "Detection models loaded",
+            description: "Visual and audio detection models are now ready to use.",
           });
         } else {
           throw new Error("Failed to initialize detector");
@@ -181,7 +307,7 @@ export default function AmbulanceDetectionPage() {
         console.error('Failed to load model:', error);
         toast({
           title: "Model loading failed",
-          description: "Could not load the detection model. Please try again later.",
+          description: "Could not load one or more detection models. Please try again later.",
           variant: "destructive",
         });
       } finally {
@@ -190,7 +316,136 @@ export default function AmbulanceDetectionPage() {
     }
     
     loadModel();
+    
+    // Cleanup
+    return () => {
+      if (audioDetector && audioDetector.isListening) {
+        audioDetector.stopListening();
+      }
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [toast]);
+  
+  // Effect for camera access when in camera mode
+  useEffect(() => {
+    // If camera mode is selected and no stream exists, request camera access
+    if (detectionMode === 'camera' && !stream && !isModelLoading) {
+      const enableCamera = async () => {
+        try {
+          const videoStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: 'environment' // Prefer rear camera on mobile
+            } 
+          });
+          
+          setStream(videoStream);
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = videoStream;
+          }
+          
+          toast({
+            title: "Camera activated",
+            description: "Point your camera at potential ambulances for detection.",
+          });
+        } catch (error) {
+          console.error("Error accessing camera:", error);
+          toast({
+            title: "Camera access denied",
+            description: "Please grant permission to use your camera for detection.",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      enableCamera();
+    }
+    
+    // Clean up camera stream when switching away from camera mode
+    return () => {
+      if (detectionMode !== 'camera' && stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
+    };
+  }, [detectionMode, stream, isModelLoading, toast]);
+  
+  // Effect for audio detection
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    // If audio mode is selected and listening is enabled
+    if (detectionMode === 'audio' && isListeningForSiren && audioDetector) {
+      // Start audio detection
+      const startAudioDetection = async () => {
+        try {
+          const success = await audioDetector.startListening();
+          
+          if (success) {
+            // Check for sirens periodically
+            interval = setInterval(() => {
+              const result = audioDetector.detectSiren();
+              setSirenDetected(result.detected);
+              setSirenConfidence(result.confidence);
+              
+              if (result.detected && result.confidence > 0.7) {
+                // Add to detection history for high-confidence detections
+                const newDetection: Detection = {
+                  timestamp: new Date(),
+                  confidence: result.confidence,
+                  className: "ambulance siren"
+                };
+                
+                setDetections(prev => {
+                  // Only add if we don't have a recent similar detection (within last 5 seconds)
+                  const now = new Date().getTime();
+                  const recentSimilarDetection = prev.some(d => 
+                    d.className === "ambulance siren" && 
+                    (now - d.timestamp.getTime()) < 5000
+                  );
+                  
+                  if (!recentSimilarDetection) {
+                    return [newDetection, ...prev.slice(0, 4)];
+                  }
+                  return prev;
+                });
+              }
+            }, 500); // Check every 500ms
+          }
+        } catch (error) {
+          console.error("Error starting audio detection:", error);
+          setIsListeningForSiren(false);
+          toast({
+            title: "Audio detection failed",
+            description: "Could not access microphone for siren detection.",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      startAudioDetection();
+    } else {
+      // Stop listening if mode changed or listening disabled
+      if (audioDetector && audioDetector.isListening) {
+        audioDetector.stopListening();
+      }
+      
+      // Clear the interval
+      if (interval) {
+        clearInterval(interval);
+      }
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [detectionMode, isListeningForSiren, audioDetector, toast]);
 
   // Handle image upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -232,6 +487,147 @@ export default function AmbulanceDetectionPage() {
         x, 
         y > 20 ? y - 10 : 20
       );
+    }
+  };
+  
+  // Handle camera-based detection
+  const handleStartCameraDetection = async () => {
+    if (!detector || !stream || !videoRef.current) {
+      toast({
+        title: "Cannot start camera detection",
+        description: "Please ensure the camera is active and the detection model is loaded.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsDetecting(true);
+    setDetectionResult(null);
+    
+    try {
+      // Create a temporary canvas to capture the current video frame
+      const tempCanvas = document.createElement('canvas');
+      const videoElement = videoRef.current;
+      
+      tempCanvas.width = videoElement.videoWidth;
+      tempCanvas.height = videoElement.videoHeight;
+      
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) throw new Error("Could not get canvas context");
+      
+      // Draw the current video frame to the canvas
+      tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // Create an image from the canvas
+      const imgDataUrl = tempCanvas.toDataURL('image/png');
+      const img = new Image();
+      img.src = imgDataUrl;
+      
+      // Wait for the image to load
+      await new Promise(resolve => {
+        img.onload = resolve;
+      });
+      
+      // Perform detection on the captured frame
+      const result = await detector.detect(img);
+      
+      // Process the result
+      if (result.found) {
+        // Add to detection history
+        const newDetection: Detection = {
+          timestamp: new Date(),
+          confidence: result.confidence,
+          imageUrl: imgDataUrl,
+          className: result.className
+        };
+        
+        setDetections(prev => [newDetection, ...prev.slice(0, 4)]);
+        
+        setDetectionResult({
+          found: true,
+          confidence: result.confidence,
+          className: result.className
+        });
+        
+        toast({
+          title: `${result.className.charAt(0).toUpperCase() + result.className.slice(1)} detected!`,
+          description: `Possible ambulance detected with ${Math.round(result.confidence * 100)}% confidence.`,
+        });
+        
+        // Draw result on camera canvas
+        if (cameraCanvasRef.current) {
+          const box = [10, 10, videoElement.videoWidth - 20, videoElement.videoHeight - 20];
+          const ctx = cameraCanvasRef.current.getContext('2d');
+          
+          if (ctx) {
+            // Set canvas dimensions to match video
+            cameraCanvasRef.current.width = videoElement.videoWidth;
+            cameraCanvasRef.current.height = videoElement.videoHeight;
+            
+            // Draw bounding box
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#FF0000';
+            ctx.strokeRect(box[0], box[1], box[2], box[3]);
+            
+            // Label
+            ctx.fillStyle = '#FF0000';
+            ctx.font = '16px Arial';
+            ctx.fillText('AMBULANCE', box[0], box[1] > 20 ? box[1] - 10 : 20);
+            
+            // Show detection for 3 seconds, then clear
+            setTimeout(() => {
+              if (cameraCanvasRef.current) {
+                const clearCtx = cameraCanvasRef.current.getContext('2d');
+                if (clearCtx) {
+                  clearCtx.clearRect(0, 0, cameraCanvasRef.current.width, cameraCanvasRef.current.height);
+                }
+              }
+            }, 3000);
+          }
+        }
+      } else {
+        setDetectionResult({
+          found: false,
+          confidence: 0,
+          className: ""
+        });
+      }
+    } catch (error) {
+      console.error('Camera detection error:', error);
+      toast({
+        title: "Detection failed",
+        description: "Could not analyze the camera feed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+  
+  // Toggle audio listening state
+  const toggleAudioListening = async () => {
+    if (isListeningForSiren) {
+      // If already listening, stop
+      setIsListeningForSiren(false);
+      setSirenDetected(false);
+      setSirenConfidence(0);
+      
+      if (audioDetector && audioDetector.isListening) {
+        audioDetector.stopListening();
+      }
+      
+      toast({
+        title: "Siren detection stopped",
+        description: "Audio monitoring for ambulance sirens has been disabled.",
+      });
+    } else {
+      // Start listening
+      setIsListeningForSiren(true);
+      
+      toast({
+        title: "Listening for sirens",
+        description: "Audio monitoring for ambulance sirens has been activated.",
+      });
     }
   };
   
@@ -370,85 +766,255 @@ export default function AmbulanceDetectionPage() {
                 )}
                 
                 {!isModelLoading && (
-                  <div className="space-y-6">
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-md p-6">
-                      <div className="flex flex-col items-center justify-center py-4">
-                        <Upload className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
-                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-                          Upload an image to detect if an ambulance is present
-                        </p>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          className="max-w-xs"
-                          onChange={handleFileChange}
-                        />
-                        {imageFile && (
-                          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            Selected: {imageFile.name}
-                          </p>
-                        )}
-                        
-                        {previewUrl && (
-                          <div className="mt-6 max-w-md">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Image Preview:</p>
-                            <div className="relative rounded-md overflow-hidden">
-                              <img 
-                                src={previewUrl}
-                                alt="Selected image"
-                                className="w-full object-contain max-h-64"
-                              />
-                              <canvas
-                                ref={canvasRef}
-                                className="absolute inset-0 w-full h-full"
-                              />
-                            </div>
-                          </div>
-                        )}
-                        
-                        {detectionResult && (
-                          <div className={`mt-4 p-3 rounded-md w-full max-w-xs ${
-                            detectionResult.found 
-                              ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700' 
-                              : 'bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700'
-                          }`}>
-                            <div className="flex items-center justify-center">
-                              {detectionResult.found ? (
-                                <>
-                                  <Check className="h-5 w-5 text-green-500 mr-2" />
-                                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                                    {detectionResult.className === 'ambulance' ? 'Ambulance' : 'Vehicle'} detected ({Math.round(detectionResult.confidence * 100)}%)
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="h-5 w-5 text-red-500 mr-2" />
-                                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                                    No ambulances detected
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  <Tabs value={detectionMode} onValueChange={(v) => setDetectionMode(v as 'upload' | 'camera' | 'audio')}>
+                    <TabsList className="grid w-full grid-cols-3 mb-6">
+                      <TabsTrigger value="upload">
+                        <Upload className="mr-2 h-4 w-4" /> Image Upload
+                      </TabsTrigger>
+                      <TabsTrigger value="camera">
+                        <Camera className="mr-2 h-4 w-4" /> Camera
+                      </TabsTrigger>
+                      <TabsTrigger value="audio">
+                        <Volume2 className="mr-2 h-4 w-4" /> Audio
+                      </TabsTrigger>
+                    </TabsList>
                     
-                    <Button 
-                      className="w-full"
-                      onClick={handleAnalyzeImage}
-                      disabled={isDetecting || !imageFile}
-                    >
-                      {isDetecting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Analyzing image with YOLOv5...
-                        </>
-                      ) : (
-                        <>Analyze Image</>
-                      )}
-                    </Button>
-                  </div>
+                    {/* Image Upload Tab */}
+                    <TabsContent value="upload">
+                      <div className="space-y-6">
+                        <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-md p-6">
+                          <div className="flex flex-col items-center justify-center py-4">
+                            <Upload className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
+                            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                              Upload an image to detect if an ambulance is present
+                            </p>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="max-w-xs"
+                              onChange={handleFileChange}
+                            />
+                            {imageFile && (
+                              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                Selected: {imageFile.name}
+                              </p>
+                            )}
+                            
+                            {previewUrl && (
+                              <div className="mt-6 max-w-md">
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Image Preview:</p>
+                                <div className="relative rounded-md overflow-hidden">
+                                  <img 
+                                    src={previewUrl}
+                                    alt="Selected image"
+                                    className="w-full object-contain max-h-64"
+                                  />
+                                  <canvas
+                                    ref={canvasRef}
+                                    className="absolute inset-0 w-full h-full"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            
+                            {detectionResult && detectionMode === 'upload' && (
+                              <div className={`mt-4 p-3 rounded-md w-full max-w-xs ${
+                                detectionResult.found 
+                                  ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700' 
+                                  : 'bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700'
+                              }`}>
+                                <div className="flex items-center justify-center">
+                                  {detectionResult.found ? (
+                                    <>
+                                      <Check className="h-5 w-5 text-green-500 mr-2" />
+                                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                        {detectionResult.className === 'ambulance' ? 'Ambulance' : 'Vehicle'} detected ({Math.round(detectionResult.confidence * 100)}%)
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                                        No ambulances detected
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          className="w-full"
+                          onClick={handleAnalyzeImage}
+                          disabled={isDetecting || !imageFile}
+                        >
+                          {isDetecting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Analyzing image with YOLOv5...
+                            </>
+                          ) : (
+                            <>Analyze Image</>
+                          )}
+                        </Button>
+                      </div>
+                    </TabsContent>
+                    
+                    {/* Camera Tab */}
+                    <TabsContent value="camera">
+                      <div className="space-y-6">
+                        <div className="mb-4 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden aspect-video">
+                          {!stream && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <Camera className="h-16 w-16 text-gray-400 dark:text-gray-600 mb-4" />
+                              <p className="text-center text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                                Camera access is required for live ambulance detection.
+                              </p>
+                            </div>
+                          )}
+                          
+                          <video 
+                            ref={videoRef}
+                            className="w-full h-full object-cover"
+                            autoPlay
+                            playsInline
+                            muted
+                          />
+                          
+                          <canvas 
+                            ref={cameraCanvasRef}
+                            className="absolute inset-0 w-full h-full"
+                          />
+                          
+                          {detectionResult && detectionMode === 'camera' && (
+                            <div className={`absolute top-4 right-4 p-3 rounded-md ${
+                              detectionResult.found 
+                                ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700' 
+                                : 'bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700'
+                            }`}>
+                              <div className="flex items-center">
+                                {detectionResult.found ? (
+                                  <>
+                                    <Check className="h-5 w-5 text-green-500 mr-2" />
+                                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                      {detectionResult.className === 'ambulance' ? 'Ambulance' : 'Vehicle'} detected ({Math.round(detectionResult.confidence * 100)}%)
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                                    <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                                      No ambulances detected
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex justify-center">
+                          <Button 
+                            className="px-8"
+                            onClick={handleStartCameraDetection}
+                            disabled={isDetecting || !stream}
+                          >
+                            {isDetecting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Detecting...
+                              </>
+                            ) : (
+                              <>Capture & Detect</>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center">
+                          Point your camera at vehicles to detect potential ambulances. The model will look for vehicles that may be ambulances.
+                        </p>
+                      </div>
+                    </TabsContent>
+                    
+                    {/* Audio Tab */}
+                    <TabsContent value="audio">
+                      <div className="space-y-6">
+                        <div className={`border-2 rounded-md p-6 ${
+                          isListeningForSiren 
+                            ? 'border-primary dark:border-primary/50'
+                            : 'border-gray-300 dark:border-gray-700'
+                        }`}>
+                          <div className="flex flex-col items-center justify-center py-4">
+                            {isListeningForSiren ? (
+                              <div className="relative mb-4">
+                                <Volume2 className={`h-12 w-12 ${
+                                  sirenDetected 
+                                    ? 'text-green-500 dark:text-green-400 animate-pulse'
+                                    : 'text-primary dark:text-primary-400'
+                                }`} />
+                                {sirenDetected && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-20"></div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Volume2 className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
+                            )}
+                            
+                            <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+                              {isListeningForSiren 
+                                ? 'Actively listening for ambulance sirens...'
+                                : 'Click the button below to start listening for ambulance siren sounds'}
+                            </p>
+                            
+                            {isListeningForSiren && (
+                              <div className={`mt-4 p-3 rounded-md w-full max-w-xs ${
+                                sirenDetected 
+                                  ? 'bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700' 
+                                  : 'bg-gray-100 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-700'
+                              }`}>
+                                <div className="flex items-center justify-center">
+                                  {sirenDetected ? (
+                                    <>
+                                      <Check className="h-5 w-5 text-green-500 mr-2" />
+                                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                        Ambulance siren detected! ({Math.round(sirenConfidence * 100)}%)
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        No sirens detected yet
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          className={`w-full ${isListeningForSiren ? 'bg-red-500 hover:bg-red-600' : ''}`}
+                          onClick={toggleAudioListening}
+                        >
+                          {isListeningForSiren ? (
+                            <>Stop Listening</>
+                          ) : (
+                            <>Start Listening for Sirens</>
+                          )}
+                        </Button>
+                        
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center">
+                          This feature analyzes audio from your microphone to detect the distinctive sound patterns of ambulance sirens.
+                          No audio data is sent over the internet - all processing happens locally on your device.
+                        </p>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 )}
               </CardContent>
             </Card>
