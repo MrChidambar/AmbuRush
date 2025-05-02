@@ -22,7 +22,7 @@ export default function AmbulanceDetectionPage() {
                   <CardTitle>Visual Detection</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="mb-4">Detect ambulances through image recognition using YOLOv5 model.</p>
+                  <p className="mb-4">Detect ambulances through image recognition.</p>
                   <Button 
                     className="w-full" 
                     onClick={() => setActiveDetector("visual")}
