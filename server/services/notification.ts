@@ -1,26 +1,23 @@
-import sgMail from '@sendgrid/mail';
-import twilio from 'twilio';
 import { Booking } from '@shared/schema';
 
-// Initialize SendGrid with API Key for email notifications
-if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log('SendGrid configured successfully for email notifications.');
+// Check TextBee.dev configuration for SMS notifications
+const textbeeApiKey = process.env.TEXTBEE_API_KEY;
+const textbeeApiUrl = 'https://api.textbee.dev/api/v1/gateway/send';
+
+if (textbeeApiKey) {
+  console.log('TextBee.dev configured successfully for SMS notifications.');
 } else {
-  console.warn('SendGrid API key is missing or invalid. Email notifications will not work.');
+  console.warn('TextBee API key is missing. SMS notifications will not work.');
 }
 
-// Initialize Twilio with credentials for SMS notifications
-let twilioClient: twilio.Twilio | null = null;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-  try {
-    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    console.log('Twilio client configured successfully for SMS notifications.');
-  } catch (error) {
-    console.error('Failed to initialize Twilio client:', error);
-  }
+// Check Maileroo configuration for email notifications
+const mailerooApiKey = process.env.MAILEROO_API_KEY;
+const mailerooApiUrl = 'https://smtp.maileroo.com/send';
+
+if (mailerooApiKey) {
+  console.log('Maileroo configured successfully for email notifications.');
 } else {
-  console.warn('Twilio credentials are missing or invalid. SMS notifications will not work.');
+  console.warn('Maileroo API key is missing. Email notifications will not work.');
 }
 
 // Main notification function that determines which method to use based on preference and availability
