@@ -58,7 +58,7 @@ async function sendEmailNotification(booking: Booking, user: any): Promise<boole
     
     const emailData = {
       to: [{ email: user.email, name: `${user.firstName} ${user.lastName}` }],
-      from: { email: 'notifications@medirush.com', name: 'MediRush' },
+      from: { email: 'noreply@yourdomain.com', name: 'MediRush' },
       subject: `Your ${bookingType} Ambulance Booking Confirmation`,
       text: getPlainTextEmailContent(booking, user),
       html: getHtmlEmailContent(booking, user),
