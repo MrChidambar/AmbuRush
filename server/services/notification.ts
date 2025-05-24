@@ -25,23 +25,23 @@ export async function sendBookingNotification(booking: Booking, user: any): Prom
   try {
     // If user has mobile number and prefers SMS
     if (user.phoneNumber && user.notificationPreference === 'sms') {
-      if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+      if (textbeeApiKey) {
         return await sendSMSNotification(booking, user);
       } else {
-        console.warn('SMS notification requested but Twilio is not configured. Attempting email notification instead.');
-        if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+        console.warn('SMS notification requested but TextBee is not configured. Attempting email notification instead.');
+        if (mailerooApiKey) {
           return await sendEmailNotification(booking, user);
         } else {
-          console.warn('Email notification fallback failed due to missing SendGrid configuration.');
+          console.warn('Email notification fallback failed due to missing Maileroo configuration.');
           return false;
         }
       }
     } else {
       // Default to email notification
-      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+      if (mailerooApiKey) {
         return await sendEmailNotification(booking, user);
       } else {
-        console.warn('Email notification requested but SendGrid is not configured properly.');
+        console.warn('Email notification requested but Maileroo is not configured properly.');
         return false;
       }
     }
@@ -51,31 +51,46 @@ export async function sendBookingNotification(booking: Booking, user: any): Prom
   }
 }
 
-// Email notification using SendGrid
+// Email notification using Maileroo
 async function sendEmailNotification(booking: Booking, user: any): Promise<boolean> {
   try {
     const bookingType = booking.bookingType === 'emergency' ? 'Emergency' : 'Scheduled';
-    const msg = {
-      to: user.email,
-      from: 'notifications@medirush.com', // Verified sender in SendGrid
+    
+    const emailData = {
+      to: [{ email: user.email, name: `${user.firstName} ${user.lastName}` }],
+      from: { email: 'notifications@medirush.com', name: 'MediRush' },
       subject: `Your ${bookingType} Ambulance Booking Confirmation`,
       text: getPlainTextEmailContent(booking, user),
       html: getHtmlEmailContent(booking, user),
     };
 
-    await sgMail.send(msg);
-    console.log(`Email notification sent to ${user.email}`);
-    return true;
+    const response = await fetch(mailerooApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': mailerooApiKey!,
+      },
+      body: JSON.stringify(emailData),
+    });
+
+    if (response.ok) {
+      console.log(`Email notification sent to ${user.email} via Maileroo`);
+      return true;
+    } else {
+      const errorText = await response.text();
+      console.error('Error sending email via Maileroo:', errorText);
+      return false;
+    }
   } catch (error) {
     console.error('Error sending email notification:', error);
     return false;
   }
 }
 
-// SMS notification using Twilio
+// SMS notification using TextBee.dev
 async function sendSMSNotification(booking: Booking, user: any): Promise<boolean> {
-  if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
-    console.error('Twilio client or phone number not configured');
+  if (!textbeeApiKey) {
+    console.error('TextBee API key not configured');
     return false;
   }
   
@@ -83,14 +98,30 @@ async function sendSMSNotification(booking: Booking, user: any): Promise<boolean
     const bookingType = booking.bookingType === 'emergency' ? 'Emergency' : 'Scheduled';
     const messageBody = `MediRush: Your ${bookingType} ambulance booking #${booking.id} has been confirmed. Pickup: ${booking.pickupAddress}. Status: ${booking.status}. Track at: medirush.com/tracking/${booking.id}`;
     
-    const message = await twilioClient.messages.create({
-      body: messageBody,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: user.phoneNumber
+    const smsData = {
+      recipients: [user.phoneNumber],
+      message: messageBody,
+      sender: 'MediRush'
+    };
+
+    const response = await fetch(textbeeApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${textbeeApiKey}`,
+      },
+      body: JSON.stringify(smsData),
     });
-    
-    console.log(`SMS notification sent to ${user.phoneNumber}. SID: ${message.sid}`);
-    return true;
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`SMS notification sent to ${user.phoneNumber} via TextBee. ID: ${result.id || 'N/A'}`);
+      return true;
+    } else {
+      const errorText = await response.text();
+      console.error('Error sending SMS via TextBee:', errorText);
+      return false;
+    }
   } catch (error) {
     console.error('Error sending SMS notification:', error);
     return false;
