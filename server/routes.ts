@@ -17,6 +17,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed initial data
   await seedInitialData();
 
+  // Driver Platform Integration APIs
+  app.post("/api/driver/updateLocation", async (req, res) => {
+    if (!req.user || req.user.role !== 'driver') {
+      return res.status(401).json({ message: "Unauthorized - Driver access required" });
+    }
+
+    try {
+      const { latitude, longitude } = req.body;
+      
+      if (!latitude || !longitude) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+      }
+      
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Update ambulance location
+      const updatedAmbulance = await storage.updateAmbulanceLocation(ambulance.id, latitude, longitude);
+      
+      res.json(updatedAmbulance);
+    } catch (error) {
+      console.error('Error updating driver location:', error);
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  app.get("/api/driver/assigned-bookings", async (req, res) => {
+    if (!req.user || req.user.role !== 'driver') {
+      return res.status(401).json({ message: "Unauthorized - Driver access required" });
+    }
+
+    try {
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Get active booking for this ambulance
+      const activeBooking = await storage.getActiveBookingByAmbulanceId(ambulance.id);
+      
+      res.json(activeBooking ? [activeBooking] : []);
+    } catch (error) {
+      console.error('Error fetching assigned bookings:', error);
+      res.status(500).json({ message: "Failed to fetch assigned bookings" });
+    }
+  });
+
   // API routes
   app.get("/api/ambulance-types", async (req, res) => {
     try {
@@ -581,59 +634,6 @@ async function seedInitialData() {
       await storage.createAmbulance(ambulance);
     }
   }
-
-  // Driver Platform Integration APIs
-  app.post("/api/driver/updateLocation", async (req, res) => {
-    if (!req.user || req.user.role !== 'driver') {
-      return res.status(401).json({ message: "Unauthorized - Driver access required" });
-    }
-
-    try {
-      const { latitude, longitude } = req.body;
-      
-      if (!latitude || !longitude) {
-        return res.status(400).json({ message: "Latitude and longitude are required" });
-      }
-      
-      // Get driver's ambulance
-      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
-      
-      if (!ambulance) {
-        return res.status(404).json({ message: "No ambulance assigned to this driver" });
-      }
-      
-      // Update ambulance location
-      const updatedAmbulance = await storage.updateAmbulanceLocation(ambulance.id, latitude, longitude);
-      
-      res.json(updatedAmbulance);
-    } catch (error) {
-      console.error('Error updating driver location:', error);
-      res.status(500).json({ message: "Failed to update location" });
-    }
-  });
-
-  app.get("/api/driver/assigned-bookings", async (req, res) => {
-    if (!req.user || req.user.role !== 'driver') {
-      return res.status(401).json({ message: "Unauthorized - Driver access required" });
-    }
-
-    try {
-      // Get driver's ambulance
-      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
-      
-      if (!ambulance) {
-        return res.status(404).json({ message: "No ambulance assigned to this driver" });
-      }
-      
-      // Get active booking for this ambulance
-      const activeBooking = await storage.getActiveBookingByAmbulanceId(ambulance.id);
-      
-      res.json(activeBooking ? [activeBooking] : []);
-    } catch (error) {
-      console.error('Error fetching assigned bookings:', error);
-      res.status(500).json({ message: "Failed to fetch assigned bookings" });
-    }
-  });
 
   // Create HTTP server
   const server = createServer(app);
