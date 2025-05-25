@@ -264,7 +264,7 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
 
   // Selected hospital data
   const selectedHospitalId = form.watch("hospitalId");
-  const selectedHospital = hospitals?.find(h => h.id === selectedHospitalId);
+  const selectedHospital = Array.isArray(hospitals) ? hospitals.find(h => h.id === selectedHospitalId) : null;
   
   // Selected ambulance type data
   const selectedAmbulanceTypeId = form.watch("ambulanceTypeId");

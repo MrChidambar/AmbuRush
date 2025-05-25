@@ -94,12 +94,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get all hospitals and calculate distance to each
         const allHospitals = await storage.getHospitals();
         const hospitalsWithDistance = allHospitals.map(hospital => {
-          const distance = calculateDistance(
-            latitude,
-            longitude,
-            hospital.latitude,
-            hospital.longitude
-          );
+          const R = 6371; // Radius of the earth in km
+          const dLat = (hospital.latitude - latitude) * (Math.PI/180);
+          const dLon = (hospital.longitude - longitude) * (Math.PI/180);
+          const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(latitude * (Math.PI/180)) * Math.cos(hospital.latitude * (Math.PI/180)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+          const distance = R * c; // Distance in km
           return { ...hospital, distance };
         });
         
@@ -339,12 +342,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (activeBooking) {
           // Calculate ETA (simplified version - in a real app this would use distance/traffic info)
-          const distanceToPickup = calculateDistance(
-            latitude, 
-            longitude, 
-            activeBooking.pickupLatitude, 
-            activeBooking.pickupLongitude
-          );
+          // Calculate distance to pickup location
+          const R = 6371; // Radius of the earth in km
+          const dLat = (activeBooking.pickupLatitude - latitude) * (Math.PI/180);
+          const dLon = (activeBooking.pickupLongitude - longitude) * (Math.PI/180);
+          const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(latitude * (Math.PI/180)) * Math.cos(activeBooking.pickupLatitude * (Math.PI/180)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+          const distanceToPickup = R * c; // Distance in km
           
           const etaInSeconds = Math.round(distanceToPickup * 60); // Simple estimation
           
