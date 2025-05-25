@@ -156,7 +156,7 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
         }
       };
       
-      const res = await apiRequest("POST", "/api/secure/bookings", bookingData);
+      const res = await apiRequest("POST", "/api/bookings", bookingData);
       return await res.json();
     },
     onSuccess: (data) => {

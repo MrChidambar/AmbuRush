@@ -117,11 +117,11 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
         emergencyContact: data.emergencyContact,
       };
       
-      const res = await apiRequest("POST", "/api/secure/bookings", bookingData);
+      const res = await apiRequest("POST", "/api/bookings", bookingData);
       return await res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/secure/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       onBookingComplete(data.id);
       toast({
         title: "Emergency booking confirmed",
