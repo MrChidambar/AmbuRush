@@ -86,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const bookingRequestSchema = z.object({
-    bookingData: insertBookingSchema,
+    bookingData: insertBookingSchema.omit({ patientDetails: true, emergencyContact: true }),
     patientDetails: patientDetailsSchema,
     emergencyContact: emergencyContactSchema.optional()
   });
