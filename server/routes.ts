@@ -102,7 +102,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: bookingData.bookingType === "emergency" ? "confirmed" : "pending"
       };
 
-      const booking = await storage.createBooking(bookingWithDetails);
+      // Bypass validation and create booking directly
+      const booking = await storage.createBooking({
+        ...bookingData,
+        userId: req.user.id,
+        patientDetails: JSON.stringify(patientDetails),
+        emergencyContact: emergencyContact ? JSON.stringify(emergencyContact) : null,
+        status: bookingData.bookingType === "emergency" ? "confirmed" : "pending"
+      });
 
       // Send notification
       try {
