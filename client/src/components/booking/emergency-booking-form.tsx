@@ -662,7 +662,7 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
                             <FormItem>
                               <FormControl>
                                 <div className="space-y-4">
-                                  {hospitals?.map((hospital) => (
+                                  {Array.isArray(hospitals) && hospitals.map((hospital) => (
                                     <div key={hospital.id} className="flex items-start">
                                       <RadioGroup
                                         value={field.value?.toString()}
