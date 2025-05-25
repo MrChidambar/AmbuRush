@@ -7,6 +7,9 @@ import { ambulanceTypes, hospitals, insertBookingSchema, patientDetailsSchema, e
 import { sendBookingNotification } from "./services/notification";
 import { z } from "zod";
 
+// WebSocket clients storage
+const wsClients = new Set<WebSocket>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
   setupAuth(app);
@@ -578,4 +581,122 @@ async function seedInitialData() {
       await storage.createAmbulance(ambulance);
     }
   }
+
+  // Driver Platform Integration APIs
+  app.post("/api/driver/updateLocation", async (req, res) => {
+    if (!req.user || req.user.role !== 'driver') {
+      return res.status(401).json({ message: "Unauthorized - Driver access required" });
+    }
+
+    try {
+      const { latitude, longitude } = req.body;
+      
+      if (!latitude || !longitude) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+      }
+      
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Update ambulance location
+      const updatedAmbulance = await storage.updateAmbulanceLocation(ambulance.id, latitude, longitude);
+      
+      res.json(updatedAmbulance);
+    } catch (error) {
+      console.error('Error updating driver location:', error);
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  app.get("/api/driver/assigned-bookings", async (req, res) => {
+    if (!req.user || req.user.role !== 'driver') {
+      return res.status(401).json({ message: "Unauthorized - Driver access required" });
+    }
+
+    try {
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Get active booking for this ambulance
+      const activeBooking = await storage.getActiveBookingByAmbulanceId(ambulance.id);
+      
+      res.json(activeBooking ? [activeBooking] : []);
+    } catch (error) {
+      console.error('Error fetching assigned bookings:', error);
+      res.status(500).json({ message: "Failed to fetch assigned bookings" });
+    }
+  });
+
+  // Create HTTP server
+  const server = createServer(app);
+
+  // Setup WebSocket server for real-time communication between platforms
+  const wss = new WebSocketServer({ server, path: '/ws' });
+
+  wss.on('connection', (ws) => {
+    console.log('New WebSocket connection established');
+    wsClients.add(ws);
+
+    ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        console.log('WebSocket message received:', message);
+
+        // Broadcast to all connected clients (including driver platform)
+        wsClients.forEach(client => {
+          if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(message));
+          }
+        });
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      console.log('WebSocket connection closed');
+      wsClients.delete(ws);
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      wsClients.delete(ws);
+    });
+  });
+
+  // Function to broadcast messages to all connected clients
+  function broadcastToClients(message: any) {
+    const messageStr = JSON.stringify(message);
+    wsClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      }
+    });
+  }
+
+  // Add WebSocket notification to booking creation
+  const originalCreateBooking = storage.createBooking;
+  storage.createBooking = async function(booking: any) {
+    const result = await originalCreateBooking.call(this, booking);
+    
+    // Broadcast new booking to driver platform
+    broadcastToClients({
+      type: 'new_booking',
+      booking: result,
+      timestamp: new Date().toISOString()
+    });
+
+    return result;
+  };
+
+  console.log('WebSocket server configured on /ws');
+  return server;
 }
