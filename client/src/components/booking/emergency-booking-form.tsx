@@ -101,23 +101,24 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
   // Create booking mutation
   const bookingMutation = useMutation({
     mutationFn: async (data: EmergencyBookingFormValues) => {
-      const bookingData = {
-        userId: user?.id,
-        bookingType: "emergency",
-        ambulanceTypeId: data.ambulanceTypeId,
-        pickupLatitude: data.pickupLatitude,
-        pickupLongitude: data.pickupLongitude,
-        pickupAddress: data.pickupAddress,
-        pickupDetails: data.pickupDetails,
-        destinationLatitude: data.destinationLatitude,
-        destinationLongitude: data.destinationLongitude,
-        destinationAddress: data.destinationAddress,
-        hospitalId: data.hospitalId,
+      const requestBody = {
+        bookingData: {
+          bookingType: "emergency",
+          ambulanceTypeId: data.ambulanceTypeId,
+          pickupLatitude: data.pickupLatitude,
+          pickupLongitude: data.pickupLongitude,
+          pickupAddress: data.pickupAddress,
+          pickupDetails: data.pickupDetails,
+          destinationLatitude: data.destinationLatitude,
+          destinationLongitude: data.destinationLongitude,
+          destinationAddress: data.destinationAddress,
+          hospitalId: data.hospitalId,
+        },
         patientDetails: data.patientDetails,
         emergencyContact: data.emergencyContact,
       };
       
-      const res = await apiRequest("POST", "/api/bookings", bookingData);
+      const res = await apiRequest("POST", "/api/bookings", requestBody);
       return await res.json();
     },
     onSuccess: (data) => {

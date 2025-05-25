@@ -123,8 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addBookingStatusUpdate({
         bookingId: booking.id,
         status: booking.status,
-        message: `Booking ${booking.status}`,
-        updatedBy: req.user.id
+        message: `Booking ${booking.status}`
       });
 
       res.status(201).json(booking);
@@ -239,8 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addBookingStatusUpdate({
         bookingId,
         status,
-        message: message || `Status updated to ${status}`,
-        updatedBy: req.user.id
+        message: message || `Status updated to ${status}`
       });
 
       res.json(updatedBooking);
