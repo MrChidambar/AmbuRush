@@ -54,20 +54,14 @@ export default function DriverMobilePage() {
   // Update location mutation
   const updateLocationMutation = useMutation({
     mutationFn: async (coords: { latitude: number; longitude: number }) => {
-      return apiRequest(`/api/ambulances/location`, {
-        method: "PATCH",
-        body: JSON.stringify(coords)
-      });
+      return apiRequest(`/api/ambulances/location`, "PATCH", coords);
     }
   });
 
   // Toggle online status
   const toggleOnlineMutation = useMutation({
     mutationFn: async (online: boolean) => {
-      return apiRequest(`/api/drivers/availability`, {
-        method: "PATCH",
-        body: JSON.stringify({ available: online })
-      });
+      return apiRequest(`/api/drivers/availability`, "PATCH", { available: online });
     },
     onSuccess: () => {
       setIsOnline(!isOnline);
@@ -81,9 +75,7 @@ export default function DriverMobilePage() {
   // Accept booking mutation
   const acceptBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
-      return apiRequest(`/api/bookings/${bookingId}/accept`, {
-        method: "PATCH"
-      });
+      return apiRequest(`/api/bookings/${bookingId}/accept`, "PATCH");
     },
     onSuccess: () => {
       refetchBookings();
@@ -97,10 +89,7 @@ export default function DriverMobilePage() {
   // Update booking status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ bookingId, status }: { bookingId: number; status: string }) => {
-      return apiRequest(`/api/bookings/${bookingId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status })
-      });
+      return apiRequest(`/api/bookings/${bookingId}/status`, "PATCH", { status });
     },
     onSuccess: () => {
       refetchBookings();
