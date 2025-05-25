@@ -13,7 +13,6 @@ import BookingHistoryPage from "@/pages/booking-history-page";
 import AmbulanceDetectionPage from "@/pages/ambulance-detection-page";
 import ServicesPage from "@/pages/services-page";
 import AdminDashboardPage from "@/pages/admin-dashboard-page";
-import DriverMobilePage from "@/pages/driver-mobile-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,11 +28,6 @@ function Router() {
         path="/admin" 
         component={AdminDashboardPage} 
         requiredRole={["admin"]} 
-      />
-      <ProtectedRoute 
-        path="/driver-mobile" 
-        component={DriverMobilePage} 
-        requiredRole={["driver"]} 
       />
       <Route path="/ambulance-detection" component={AmbulanceDetectionPage} />
       <Route component={NotFound} />

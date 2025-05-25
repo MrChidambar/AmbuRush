@@ -2,9 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Update this URL to your backend server
-// For Android device to connect to your computer, use your computer's IP address
-// You can find your IP by running 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux)
-const BASE_URL = 'https://cccdbba5-40e0-4b5f-9a77-b22f6d5ab696-00-2ppoxuasdeyrx.kirk.replit.dev/api';
+const BASE_URL = 'http://localhost:5000/api';
 
 class ApiService {
   private baseURL = BASE_URL;
