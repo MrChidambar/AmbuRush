@@ -430,23 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-// Helper function to calculate distance between two points (in km)
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Radius of the earth in km
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-  const distance = R * c; // Distance in km
-  return distance;
-}
 
-function deg2rad(deg: number): number {
-  return deg * (Math.PI/180);
-}
 
 // Seed initial data for ambulance types and hospitals
 async function seedInitialData() {
@@ -634,69 +618,6 @@ async function seedInitialData() {
       await storage.createAmbulance(ambulance);
     }
   }
-
-  // Create HTTP server
-  const server = createServer(app);
-
-  // Setup WebSocket server for real-time communication between platforms
-  const wss = new WebSocketServer({ server, path: '/ws' });
-
-  wss.on('connection', (ws) => {
-    console.log('New WebSocket connection established');
-    wsClients.add(ws);
-
-    ws.on('message', (data) => {
-      try {
-        const message = JSON.parse(data.toString());
-        console.log('WebSocket message received:', message);
-
-        // Broadcast to all connected clients (including driver platform)
-        wsClients.forEach(client => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(message));
-          }
-        });
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    });
-
-    ws.on('close', () => {
-      console.log('WebSocket connection closed');
-      wsClients.delete(ws);
-    });
-
-    ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      wsClients.delete(ws);
-    });
-  });
-
-  // Function to broadcast messages to all connected clients
-  function broadcastToClients(message: any) {
-    const messageStr = JSON.stringify(message);
-    wsClients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
-      }
-    });
-  }
-
-  // Add WebSocket notification to booking creation
-  const originalCreateBooking = storage.createBooking;
-  storage.createBooking = async function(booking: any) {
-    const result = await originalCreateBooking.call(this, booking);
-    
-    // Broadcast new booking to driver platform
-    broadcastToClients({
-      type: 'new_booking',
-      booking: result,
-      timestamp: new Date().toISOString()
-    });
-
-    return result;
-  };
-
-  console.log('WebSocket server configured on /ws');
-  return server;
 }
+
+
