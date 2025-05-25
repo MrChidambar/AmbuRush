@@ -49,247 +49,541 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           return { ...hospital, distance };
         });
-
-        // Sort by distance and return closest hospitals
-        const sortedHospitals = hospitalsWithDistance.sort((a, b) => a.distance - b.distance);
-        res.json(sortedHospitals);
+        
+        // Sort by distance and return
+        hospitalsWithDistance.sort((a, b) => a.distance - b.distance);
+        res.json(hospitalsWithDistance);
       } else {
-        // Return all hospitals
-        const hospitals = await storage.getHospitals();
-        res.json(hospitals);
+        // Just return all hospitals if no coordinates provided
+        const allHospitals = await storage.getHospitals();
+        res.json(allHospitals);
       }
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch hospitals" });
     }
   });
 
-  app.get("/api/ambulances/nearby", async (req, res) => {
+  app.get("/api/nearby-ambulances", (req, res) => {
+    const latitude = parseFloat(req.query.latitude as string);
+    const longitude = parseFloat(req.query.longitude as string);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({ message: "Invalid latitude or longitude" });
+    }
+    
     try {
-      const { latitude, longitude } = req.query;
-      
-      if (!latitude || !longitude) {
-        return res.status(400).json({ message: "Latitude and longitude are required" });
-      }
-
-      const lat = parseFloat(latitude as string);
-      const lng = parseFloat(longitude as string);
-
-      if (isNaN(lat) || isNaN(lng)) {
-        return res.status(400).json({ message: "Invalid latitude or longitude" });
-      }
-
-      const nearbyAmbulances = await storage.getNearbyAmbulances(lat, lng);
+      const nearbyAmbulances = storage.getNearbyAmbulances(latitude, longitude);
       res.json(nearbyAmbulances);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch nearby ambulances" });
     }
   });
 
-  app.post("/api/bookings", async (req, res) => {
+  // Admin API routes
+  app.get("/api/admin/bookings", async (req, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
       }
+      
+      // Get all bookings for admin view
+      const allBookings = await storage.getAllBookings();
+      res.json(allBookings);
+    } catch (error) {
+      console.error("Error fetching admin bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
 
-      const { bookingData, patientDetails, emergencyContact } = req.body;
+  app.get("/api/admin/ambulances", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      const allAmbulances = await storage.getAmbulances();
+      res.json(allAmbulances);
+    } catch (error) {
+      console.error("Error fetching ambulances:", error);
+      res.status(500).json({ message: "Failed to fetch ambulances" });
+    }
+  });
 
-      // Create the booking with patient details and emergency contact
-      const bookingWithDetails = {
-        ...bookingData,
-        userId: req.user.id,
-        patientDetails,
-        emergencyContact,
-        status: bookingData.bookingType === "emergency" ? "confirmed" : "pending"
-      };
+  app.get("/api/admin/drivers", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      // Get all drivers (users with role 'driver')
+      const drivers = await storage.getUsersByRole("driver");
+      res.json(drivers);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      res.status(500).json({ message: "Failed to fetch drivers" });
+    }
+  });
 
-      // Bypass validation and create booking directly
+  app.get("/api/admin/patients", async (req, res) => {
+    try {
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized. Admin access required." });
+      }
+      
+      // Get all patients (users with role 'patient')
+      const patients = await storage.getUsersByRole("patient");
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      res.status(500).json({ message: "Failed to fetch patients" });
+    }
+  });
+
+  // Secure routes - require authentication
+  app.post("/api/secure/bookings", async (req, res) => {
+    try {
+      // Log the received data for debugging
+      console.log("Received booking data:", JSON.stringify(req.body));
+
+      // Validate booking data
+      const bookingData = insertBookingSchema.parse(req.body);
+      
+      // Validate patient details
+      const patientDetails = patientDetailsSchema.parse(bookingData.patientDetails);
+      
+      // Validate emergency contact if provided
+      if (bookingData.emergencyContact) {
+        emergencyContactSchema.parse(bookingData.emergencyContact);
+      }
+      
+      // Add user ID from authenticated user if not already provided
       const booking = await storage.createBooking({
         ...bookingData,
-        userId: req.user.id,
-        patientDetails: JSON.stringify(patientDetails),
-        emergencyContact: emergencyContact ? JSON.stringify(emergencyContact) : null,
-        status: bookingData.bookingType === "emergency" ? "confirmed" : "pending"
+        userId: bookingData.userId || req.user!.id,
       });
-
-      // Send notification
-      try {
-        await sendBookingNotification(booking, req.user);
-      } catch (notificationError) {
-        console.error('Failed to send notification:', notificationError);
-        // Don't fail the booking if notification fails
+      
+      // Send booking confirmation notification
+      if (booking.status === 'confirmed' || booking.status === 'pending') {
+        try {
+          await sendBookingNotification(booking, req.user);
+        } catch (notificationError) {
+          console.error('Failed to send booking notification:', notificationError);
+          // Continue even if notification fails
+        }
       }
-
-      // Add initial status update
-      await storage.addBookingStatusUpdate({
-        bookingId: booking.id,
-        status: booking.status,
-        message: `Booking ${booking.status}`
-      });
-
+      
       res.status(201).json(booking);
     } catch (error) {
-      console.error('Booking creation error:', error);
       if (error instanceof z.ZodError) {
+        console.error("ZodError details:", JSON.stringify(error.errors));
         return res.status(400).json({ 
           message: "Invalid booking data", 
           errors: error.errors 
         });
       }
+      console.error("Booking creation error:", error);
       res.status(500).json({ message: "Failed to create booking" });
     }
   });
 
-  app.get("/api/bookings", async (req, res) => {
+  app.get("/api/secure/bookings", async (req, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      let bookings;
-      if (req.user.role === 'admin') {
-        // Admin can see all bookings
-        bookings = await storage.getAllBookings();
-      } else {
-        // Regular users can only see their own bookings
-        bookings = await storage.getBookingsByUserId(req.user.id);
-      }
-
+      const bookings = await storage.getBookingsByUserId(req.user!.id);
       res.json(bookings);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch bookings" });
     }
   });
 
-  app.get("/api/bookings/:id", async (req, res) => {
+  app.get("/api/secure/bookings/:id", async (req, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      const bookingId = parseInt(req.params.id);
-      if (isNaN(bookingId)) {
-        return res.status(400).json({ message: "Invalid booking ID" });
-      }
-
-      const booking = await storage.getBookingById(bookingId);
+      const booking = await storage.getBookingById(parseInt(req.params.id));
       
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-
-      // Check if user has permission to view this booking
-      if (req.user.role !== 'admin' && booking.userId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
+      
+      // Check if user is authorized to access this booking
+      if (booking.userId !== req.user!.id && req.user!.role !== "admin" && req.user!.role !== "driver") {
+        return res.status(403).json({ message: "Unauthorized to access this booking" });
       }
-
+      
       res.json(booking);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch booking" });
     }
   });
 
-  app.get("/api/bookings/:id/status-updates", async (req, res) => {
+  app.get("/api/secure/bookings/:id/status-updates", async (req, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
       const bookingId = parseInt(req.params.id);
-      if (isNaN(bookingId)) {
-        return res.status(400).json({ message: "Invalid booking ID" });
-      }
-
-      // Check if booking exists and user has permission
       const booking = await storage.getBookingById(bookingId);
+      
       if (!booking) {
         return res.status(404).json({ message: "Booking not found" });
       }
-
-      if (req.user.role !== 'admin' && booking.userId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
+      
+      // Check if user is authorized to access this booking
+      if (booking.userId !== req.user!.id && req.user!.role !== "admin" && req.user!.role !== "driver") {
+        return res.status(403).json({ message: "Unauthorized to access this booking" });
       }
-
+      
       const statusUpdates = await storage.getBookingStatusUpdates(bookingId);
       res.json(statusUpdates);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch status updates" });
+      res.status(500).json({ message: "Failed to fetch booking status updates" });
     }
   });
 
-  app.patch("/api/bookings/:id/status", async (req, res) => {
+  app.post("/api/secure/bookings/:id/cancel", async (req, res) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(401).json({ message: "Admin access required" });
-      }
-
       const bookingId = parseInt(req.params.id);
-      if (isNaN(bookingId)) {
-        return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
       }
-
-      const { status, message } = req.body;
-      if (!status) {
-        return res.status(400).json({ message: "Status is required" });
+      
+      // Check if user is authorized to cancel this booking
+      if (booking.userId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized to cancel this booking" });
       }
+      
+      // Check if booking can be cancelled
+      if (["completed", "cancelled"].includes(booking.status)) {
+        return res.status(400).json({ message: `Booking cannot be cancelled in ${booking.status} state` });
+      }
+      
+      const updatedBooking = await storage.updateBookingStatus(bookingId, "cancelled");
+      res.json(updatedBooking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to cancel booking" });
+    }
+  });
 
+  app.post("/api/driver/updateLocation", async (req, res) => {
+    try {
+      const { latitude, longitude } = req.body;
+      
+      if (!latitude || !longitude) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+      }
+      
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user!.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Update ambulance location
+      const updatedAmbulance = await storage.updateAmbulanceLocation(ambulance.id, latitude, longitude);
+      
+      // If ambulance is assigned to a booking, update the ETA
+      if (ambulance.status === "assigned") {
+        // Find active booking for this ambulance
+        const activeBooking = await storage.getActiveBookingByAmbulanceId(ambulance.id);
+        
+        if (activeBooking) {
+          // Calculate ETA (simplified version - in a real app this would use distance/traffic info)
+          const distanceToPickup = calculateDistance(
+            latitude, 
+            longitude, 
+            activeBooking.pickupLatitude, 
+            activeBooking.pickupLongitude
+          );
+          
+          const etaInSeconds = Math.round(distanceToPickup * 60); // Simple estimation
+          
+          // Add status update
+          await storage.addBookingStatusUpdate({
+            bookingId: activeBooking.id,
+            status: activeBooking.status,
+            latitude,
+            longitude,
+            eta: etaInSeconds,
+            message: `Driver is ${Math.round(distanceToPickup * 10) / 10} km away`,
+          });
+        }
+      }
+      
+      res.json(updatedAmbulance);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  app.post("/api/driver/updateBookingStatus", async (req, res) => {
+    try {
+      const { bookingId, status, latitude, longitude, message } = req.body;
+      
+      if (!bookingId || !status) {
+        return res.status(400).json({ message: "Booking ID and status are required" });
+      }
+      
+      const booking = await storage.getBookingById(bookingId);
+      
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Get driver's ambulance
+      const ambulance = await storage.getAmbulanceByDriverId(req.user!.id);
+      
+      if (!ambulance) {
+        return res.status(404).json({ message: "No ambulance assigned to this driver" });
+      }
+      
+      // Ensure the driver is assigned to this booking
+      if (booking.ambulanceId !== ambulance.id) {
+        return res.status(403).json({ message: "Driver not assigned to this booking" });
+      }
+      
+      // Update booking status
       const updatedBooking = await storage.updateBookingStatus(bookingId, status);
       
-      // Add status update record
+      // Add status update
       await storage.addBookingStatusUpdate({
         bookingId,
         status,
-        message: message || `Status updated to ${status}`
+        latitude,
+        longitude,
+        message,
       });
-
+      
+      // If booking status changed to important state (picked up, arrived, completed)
+      // send a notification to the user
+      if (['picked_up', 'arrived', 'completed'].includes(status)) {
+        try {
+          // Get the booking user
+          const user = await storage.getUser(updatedBooking.userId);
+          if (user) {
+            await sendBookingNotification(updatedBooking, user);
+          }
+        } catch (notificationError) {
+          console.error('Failed to send status update notification:', notificationError);
+          // Continue even if notification fails
+        }
+      }
+      
       res.json(updatedBooking);
     } catch (error) {
       res.status(500).json({ message: "Failed to update booking status" });
     }
   });
 
-  // Admin routes
-  app.get("/api/admin/users", async (req, res) => {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(401).json({ message: "Admin access required" });
-      }
+  const httpServer = createServer(app);
 
-      const { role } = req.query;
-      let users;
-      
-      if (role) {
-        users = await storage.getUsersByRole(role as string);
-      } else {
-        // For now, we'll get all users by getting each role separately
-        const patients = await storage.getUsersByRole('patient');
-        const drivers = await storage.getUsersByRole('driver');
-        const admins = await storage.getUsersByRole('admin');
-        users = [...patients, ...drivers, ...admins];
-      }
+  return httpServer;
+}
 
-      // Remove password from response
-      const sanitizedUsers = users.map(({ password, ...user }) => user);
-      res.json(sanitizedUsers);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch users" });
+// Helper function to calculate distance between two points (in km)
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const distance = R * c; // Distance in km
+  return distance;
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI/180);
+}
+
+// Seed initial data for ambulance types and hospitals
+async function seedInitialData() {
+  // Seed admin user
+  const adminUsername = "admin";
+  const existingAdmin = await storage.getUserByUsername(adminUsername);
+  
+  if (!existingAdmin) {
+    const adminUser = {
+      username: adminUsername,
+      password: await hashPassword("admin"),
+      firstName: "System",
+      lastName: "Administrator",
+      email: "admin@ambulanceapp.com",
+      phoneNumber: "9999999999",
+      role: "admin"
+    };
+    await storage.createUser(adminUser);
+    console.log("Admin user created with username: admin and password: admin");
+  }
+  
+  // Seed ambulance types
+  const ambulanceTypesData = [
+    {
+      name: "Basic Life Support",
+      description: "For non-critical transport with basic medical care",
+      basePrice: 1500,
+      pricePerKm: 25,
+      icon: "ambulance"
+    },
+    {
+      name: "Advanced Life Support",
+      description: "For critical patients requiring advanced care",
+      basePrice: 3000,
+      pricePerKm: 45,
+      icon: "heartbeat"
+    },
+    {
+      name: "Neonatal",
+      description: "Specialized transport for newborns",
+      basePrice: 4000,
+      pricePerKm: 60,
+      icon: "baby"
+    },
+    {
+      name: "ICU on Wheels",
+      description: "Mobile intensive care unit for critical patients",
+      basePrice: 5000,
+      pricePerKm: 75,
+      icon: "hospital"
+    },
+    {
+      name: "Mental Health",
+      description: "Specialized transport with mental health professionals",
+      basePrice: 2500,
+      pricePerKm: 35,
+      icon: "brain"
+    },
+    {
+      name: "Pet Ambulance",
+      description: "Emergency transport for pets",
+      basePrice: 2000,
+      pricePerKm: 30,
+      icon: "paw"
     }
-  });
+  ];
 
-  app.get("/api/admin/ambulances", async (req, res) => {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(401).json({ message: "Admin access required" });
-      }
-
-      const ambulances = await storage.getAmbulances();
-      res.json(ambulances);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch ambulances" });
+  // Only seed if no ambulance types exist
+  const existingTypes = await storage.getAmbulanceTypes();
+  if (existingTypes.length === 0) {
+    for (const type of ambulanceTypesData) {
+      await storage.createAmbulanceType(type);
     }
-  });
+  }
 
-  // Driver routes
-  app.post("/api/driver/location", async (req, res) => {
+  // Seed hospitals
+  const hospitalsData = [
+    {
+      name: "AIIMS Bangalore",
+      address: "Bengaluru Urban, Karnataka 560016",
+      latitude: 12.9174,
+      longitude: 77.5990,
+      specialties: ["Emergency", "Trauma", "Cardiac", "Neurology"]
+    },
+    {
+      name: "Manipal Hospital",
+      address: "Old Airport Road, Bengaluru 560017",
+      latitude: 12.9558,
+      longitude: 77.6491,
+      specialties: ["Pediatric", "Emergency", "Oncology", "Cardiology"]
+    },
+    {
+      name: "Fortis Hospital",
+      address: "Bannerghatta Road, Bengaluru 560076",
+      latitude: 12.8911,
+      longitude: 77.5962,
+      specialties: ["Cardiac", "Orthopedic", "Emergency", "Transplant"]
+    },
+    {
+      name: "Narayana Hrudayalaya",
+      address: "Electronic City, Bengaluru 560100",
+      latitude: 12.8429,
+      longitude: 77.6474,
+      specialties: ["Cardiac", "Emergency", "Pediatric", "Neurosurgery"]
+    },
+    {
+      name: "BGS Gleneagles Global Hospital",
+      address: "67, Uttarahalli Main Rd, Sunkalpalya, Bengaluru",
+      latitude: 12.9276,
+      longitude: 77.5477,
+      specialties: ["Multi-Organ Transplant", "Cancer Care", "Neurosciences", "Cardiac Sciences"]
+    },
+    {
+      name: "Jayadeva Memorial Hospital",
+      address: "Jayanagar, Bengaluru",
+      latitude: 12.9278,
+      longitude: 77.5943,
+      specialties: ["Orthopedics", "Rheumatology", "Arthritis Care"]
+    },
+    {
+      name: "Sanjeevani Specialty Healthcare",
+      address: "Bannerghatta Road, Bengaluru",
+      latitude: 12.8933,
+      longitude: 77.5996,
+      specialties: ["General Medicine", "Diabetes Care", "Cardiology"]
+    }
+  ];
+
+  // Only seed if no hospitals exist
+  const existingHospitals = await storage.getHospitals();
+  if (existingHospitals.length === 0) {
+    for (const hospital of hospitalsData) {
+      await storage.createHospital(hospital);
+    }
+  }
+
+  // Seed available ambulances
+  const ambulancesData = [
+    {
+      registrationNumber: "KA-01-AB-1234",
+      typeId: 1,
+      status: "available",
+      latitude: 12.9280,
+      longitude: 77.6090,
+      driverId: null
+    },
+    {
+      registrationNumber: "KA-01-CD-5678",
+      typeId: 2,
+      status: "available",
+      latitude: 12.9350,
+      longitude: 77.6245,
+      driverId: null
+    },
+    {
+      registrationNumber: "KA-01-EF-9012",
+      typeId: 1,
+      status: "available",
+      latitude: 12.9080,
+      longitude: 77.5932,
+      driverId: null
+    },
+    {
+      registrationNumber: "KA-02-GH-3456",
+      typeId: 3,
+      status: "available",
+      latitude: 12.9767,
+      longitude: 77.5713,
+      driverId: null
+    },
+    {
+      registrationNumber: "KA-03-IJ-7890",
+      typeId: 4,
+      status: "available",
+      latitude: 12.8845,
+      longitude: 77.6040,
+      driverId: null
+    }
+  ];
+
+  // Only seed if no ambulances exist
+  const existingAmbulances = await storage.getAmbulances();
+  if (existingAmbulances.length === 0) {
+    for (const ambulance of ambulancesData) {
+      await storage.createAmbulance(ambulance);
+    }
+  }
+
+  // Driver Platform Integration APIs
+  app.post("/api/driver/updateLocation", async (req, res) => {
     if (!req.user || req.user.role !== 'driver') {
       return res.status(401).json({ message: "Unauthorized - Driver access required" });
     }
@@ -378,159 +672,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Function to broadcast messages to all connected clients
+  function broadcastToClients(message: any) {
+    const messageStr = JSON.stringify(message);
+    wsClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      }
+    });
+  }
+
+  // Add WebSocket notification to booking creation
+  const originalCreateBooking = storage.createBooking;
+  storage.createBooking = async function(booking: any) {
+    const result = await originalCreateBooking.call(this, booking);
+    
+    // Broadcast new booking to driver platform
+    broadcastToClients({
+      type: 'new_booking',
+      booking: result,
+      timestamp: new Date().toISOString()
+    });
+
+    return result;
+  };
+
   console.log('WebSocket server configured on /ws');
   return server;
-}
-
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Radius of the Earth in kilometers
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in kilometers
-  return d;
-}
-
-function deg2rad(deg: number): number {
-  return deg * (Math.PI / 180);
-}
-
-async function seedInitialData() {
-  // Create admin user if it doesn't exist
-  const adminUsername = "admin";
-  const existingAdmin = await storage.getUserByUsername(adminUsername);
-  
-  if (!existingAdmin) {
-    const adminUser = {
-      username: adminUsername,
-      password: await hashPassword("admin"),
-      firstName: "System",
-      lastName: "Administrator",
-      email: "admin@ambulanceapp.com",
-      phoneNumber: "9999999999",
-      role: "admin"
-    };
-    await storage.createUser(adminUser);
-    console.log("Admin user created with username: admin and password: admin");
-  }
-  
-  // Seed ambulance types
-  const ambulanceTypesData = [
-    {
-      name: "Basic Life Support",
-      description: "For non-critical transport with basic medical care",
-      basePrice: 1500,
-      pricePerKm: 25,
-      icon: "ambulance"
-    },
-    {
-      name: "Advanced Life Support",
-      description: "For critical patients requiring advanced care",
-      basePrice: 3000,
-      pricePerKm: 45,
-      icon: "heartbeat"
-    },
-    {
-      name: "Neonatal",
-      description: "Specialized transport for newborns",
-      basePrice: 4000,
-      pricePerKm: 60,
-      icon: "baby"
-    },
-    {
-      name: "ICU on Wheels",
-      description: "Mobile intensive care unit for critical patients",
-      basePrice: 5000,
-      pricePerKm: 75,
-      icon: "hospital"
-    },
-    {
-      name: "Mental Health",
-      description: "Specialized transport with mental health professionals",
-      basePrice: 2500,
-      pricePerKm: 35,
-      icon: "brain"
-    }
-  ];
-
-  // Only seed if no ambulance types exist
-  const existingTypes = await storage.getAmbulanceTypes();
-  if (existingTypes.length === 0) {
-    for (const type of ambulanceTypesData) {
-      await storage.createAmbulanceType(type);
-    }
-  }
-
-  // Seed hospitals
-  const hospitalsData = [
-    {
-      name: "BGS Gleneagles Global Hospitals",
-      address: "67, Uttarahalli Rd, Kengeri, Bengaluru, Karnataka 560060",
-      latitude: 12.9158,
-      longitude: 77.4854,
-      specialties: ["Emergency Care", "Cardiology", "Neurology", "Oncology"]
-    },
-    {
-      name: "Apollo Hospitals Bannerghatta",
-      address: "154/11, Opp. IIM-B, Bannerghatta Rd, Bengaluru, Karnataka 560076",
-      latitude: 12.9279,
-      longitude: 77.5965,
-      specialties: ["Emergency Care", "Orthopedics", "Gastroenterology", "Pediatrics"]
-    },
-    {
-      name: "Fortis Hospital Bannerghatta Road",
-      address: "154/9, Bannerghatta Rd, Opposite IIM-B, Bengaluru, Karnataka 560076",
-      latitude: 12.9308,
-      longitude: 77.5968,
-      specialties: ["Emergency Care", "Nephrology", "Urology", "Dermatology"]
-    }
-  ];
-
-  // Only seed if no hospitals exist
-  const existingHospitals = await storage.getHospitals();
-  if (existingHospitals.length === 0) {
-    for (const hospital of hospitalsData) {
-      await storage.createHospital(hospital);
-    }
-  }
-
-  // Seed ambulances
-  const ambulancesData = [
-    {
-      registrationNumber: "KA-05-AB-1234",
-      typeId: 1, // Basic Life Support
-      status: "available",
-      latitude: 12.9716,
-      longitude: 77.5946,
-      driverId: null
-    },
-    {
-      registrationNumber: "KA-05-AB-5678",
-      typeId: 2, // Advanced Life Support
-      status: "available", 
-      latitude: 12.9352,
-      longitude: 77.6245,
-      driverId: null
-    },
-    {
-      registrationNumber: "KA-05-AB-9012",
-      typeId: 1, // Basic Life Support
-      status: "available",
-      latitude: 12.9279,
-      longitude: 77.5965,
-      driverId: null
-    }
-  ];
-
-  // Only seed if no ambulances exist
-  const existingAmbulances = await storage.getAmbulances();
-  if (existingAmbulances.length === 0) {
-    for (const ambulance of ambulancesData) {
-      await storage.createAmbulance(ambulance);
-    }
-  }
 }

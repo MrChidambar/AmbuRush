@@ -101,29 +101,27 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
   // Create booking mutation
   const bookingMutation = useMutation({
     mutationFn: async (data: EmergencyBookingFormValues) => {
-      const requestBody = {
-        bookingData: {
-          userId: user?.id,
-          bookingType: "emergency",
-          ambulanceTypeId: data.ambulanceTypeId,
-          pickupLatitude: data.pickupLatitude,
-          pickupLongitude: data.pickupLongitude,
-          pickupAddress: data.pickupAddress,
-          pickupDetails: data.pickupDetails,
-          destinationLatitude: data.destinationLatitude,
-          destinationLongitude: data.destinationLongitude,
-          destinationAddress: data.destinationAddress,
-          hospitalId: data.hospitalId,
-        },
+      const bookingData = {
+        userId: user?.id,
+        bookingType: "emergency",
+        ambulanceTypeId: data.ambulanceTypeId,
+        pickupLatitude: data.pickupLatitude,
+        pickupLongitude: data.pickupLongitude,
+        pickupAddress: data.pickupAddress,
+        pickupDetails: data.pickupDetails,
+        destinationLatitude: data.destinationLatitude,
+        destinationLongitude: data.destinationLongitude,
+        destinationAddress: data.destinationAddress,
+        hospitalId: data.hospitalId,
         patientDetails: data.patientDetails,
         emergencyContact: data.emergencyContact,
       };
       
-      const res = await apiRequest("POST", "/api/bookings", requestBody);
+      const res = await apiRequest("POST", "/api/secure/bookings", bookingData);
       return await res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/secure/bookings"] });
       onBookingComplete(data.id);
       toast({
         title: "Emergency booking confirmed",

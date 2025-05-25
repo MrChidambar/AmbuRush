@@ -130,37 +130,37 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
     mutationFn: async (data: NonEmergencyBookingFormValues) => {
       // Create a JSON-serializable version of the booking data
       // with all dates properly formatted as ISO strings
-      const requestBody = {
-        bookingData: {
-          userId: user?.id,
-          bookingType: "scheduled",
-          ambulanceTypeId: data.ambulanceTypeId,
-          pickupLatitude: data.pickupLatitude,
-          pickupLongitude: data.pickupLongitude,
-          pickupAddress: data.pickupAddress,
-          pickupDetails: data.pickupDetails,
-          destinationLatitude: data.destinationLatitude,
-          destinationLongitude: data.destinationLongitude,
-          destinationAddress: data.destinationAddress,
-          destinationDetails: data.destinationDetails,
-          hospitalId: data.hospitalId,
-          scheduledTime: new Date(data.scheduledTime),
-        },
+      const bookingData = {
+        userId: user?.id,
+        bookingType: "scheduled",
+        ambulanceTypeId: data.ambulanceTypeId,
+        pickupLatitude: data.pickupLatitude,
+        pickupLongitude: data.pickupLongitude,
+        pickupAddress: data.pickupAddress,
+        pickupDetails: data.pickupDetails,
+        destinationLatitude: data.destinationLatitude,
+        destinationLongitude: data.destinationLongitude,
+        destinationAddress: data.destinationAddress,
+        destinationDetails: data.destinationDetails,
+        hospitalId: data.hospitalId,
+        // Convert Date to proper format for server
+        scheduledTime: new Date(data.scheduledTime), 
+        emergencyContact: data.emergencyContact,
+        // Enhanced patient details with booking metadata
         patientDetails: {
           ...data.patientDetails,
           bookingPurpose: data.bookingPurpose,
           isRecurring: data.isRecurring,
           recurringPattern: data.recurringPattern,
           recurringEndDate: data.recurringEndDate ? new Date(data.recurringEndDate) : null,
-        },
-        emergencyContact: data.emergencyContact,
+        }
       };
       
-      const res = await apiRequest("POST", "/api/bookings", requestBody);
+      const res = await apiRequest("POST", "/api/secure/bookings", bookingData);
       return await res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/secure/bookings"] });
       onBookingComplete(data.id);
       toast({
         title: "Booking confirmed",
