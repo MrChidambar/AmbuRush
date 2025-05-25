@@ -132,6 +132,7 @@ export function NonEmergencyBookingForm({ onBookingComplete }: NonEmergencyBooki
       // with all dates properly formatted as ISO strings
       const requestBody = {
         bookingData: {
+          userId: user?.id,
           bookingType: "scheduled",
           ambulanceTypeId: data.ambulanceTypeId,
           pickupLatitude: data.pickupLatitude,

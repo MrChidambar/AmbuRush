@@ -103,6 +103,7 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
     mutationFn: async (data: EmergencyBookingFormValues) => {
       const requestBody = {
         bookingData: {
+          userId: user?.id,
           bookingType: "emergency",
           ambulanceTypeId: data.ambulanceTypeId,
           pickupLatitude: data.pickupLatitude,
