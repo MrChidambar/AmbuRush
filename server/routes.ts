@@ -85,20 +85,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const bookingRequestSchema = z.object({
-    bookingData: insertBookingSchema.omit({ patientDetails: true, emergencyContact: true }),
-    patientDetails: patientDetailsSchema,
-    emergencyContact: emergencyContactSchema.optional()
-  });
-
   app.post("/api/bookings", async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      const validatedData = bookingRequestSchema.parse(req.body);
-      const { bookingData, patientDetails, emergencyContact } = validatedData;
+      const { bookingData, patientDetails, emergencyContact } = req.body;
 
       // Create the booking with patient details and emergency contact
       const bookingWithDetails = {
