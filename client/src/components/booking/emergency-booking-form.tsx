@@ -264,7 +264,7 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
 
   // Selected hospital data
   const selectedHospitalId = form.watch("hospitalId");
-  const selectedHospital = Array.isArray(hospitals) ? hospitals.find(h => h.id === selectedHospitalId) : null;
+  const selectedHospital = hospitals?.find(h => h.id === selectedHospitalId);
   
   // Selected ambulance type data
   const selectedAmbulanceTypeId = form.watch("ambulanceTypeId");
@@ -662,7 +662,7 @@ export function EmergencyBookingForm({ onBookingComplete }: EmergencyBookingForm
                             <FormItem>
                               <FormControl>
                                 <div className="space-y-4">
-                                  {Array.isArray(hospitals) && hospitals.map((hospital) => (
+                                  {hospitals?.map((hospital) => (
                                     <div key={hospital.id} className="flex items-start">
                                       <RadioGroup
                                         value={field.value?.toString()}

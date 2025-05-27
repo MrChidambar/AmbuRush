@@ -1,23 +1,26 @@
+import sgMail from '@sendgrid/mail';
+import twilio from 'twilio';
 import { Booking } from '@shared/schema';
 
-// Check TextBee.dev configuration for SMS notifications
-const textbeeApiKey = process.env.TEXTBEE_API_KEY;
-const textbeeApiUrl = 'https://api.textbee.dev/api/v1/gateway/send';
-
-if (textbeeApiKey) {
-  console.log('TextBee.dev configured successfully for SMS notifications.');
+// Initialize SendGrid with API Key for email notifications
+if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('SendGrid configured successfully for email notifications.');
 } else {
-  console.warn('TextBee API key is missing. SMS notifications will not work.');
+  console.warn('SendGrid API key is missing or invalid. Email notifications will not work.');
 }
 
-// Check Maileroo configuration for email notifications
-const mailerooApiKey = process.env.MAILEROO_API_KEY;
-const mailerooApiUrl = 'https://smtp.maileroo.com/send';
-
-if (mailerooApiKey) {
-  console.log('Maileroo configured successfully for email notifications.');
+// Initialize Twilio with credentials for SMS notifications
+let twilioClient: twilio.Twilio | null = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  try {
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('Twilio client configured successfully for SMS notifications.');
+  } catch (error) {
+    console.error('Failed to initialize Twilio client:', error);
+  }
 } else {
-  console.warn('Maileroo API key is missing. Email notifications will not work.');
+  console.warn('Twilio credentials are missing or invalid. SMS notifications will not work.');
 }
 
 // Main notification function that determines which method to use based on preference and availability
@@ -25,23 +28,23 @@ export async function sendBookingNotification(booking: Booking, user: any): Prom
   try {
     // If user has mobile number and prefers SMS
     if (user.phoneNumber && user.notificationPreference === 'sms') {
-      if (textbeeApiKey) {
+      if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
         return await sendSMSNotification(booking, user);
       } else {
-        console.warn('SMS notification requested but TextBee is not configured. Attempting email notification instead.');
-        if (mailerooApiKey) {
+        console.warn('SMS notification requested but Twilio is not configured. Attempting email notification instead.');
+        if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
           return await sendEmailNotification(booking, user);
         } else {
-          console.warn('Email notification fallback failed due to missing Maileroo configuration.');
+          console.warn('Email notification fallback failed due to missing SendGrid configuration.');
           return false;
         }
       }
     } else {
       // Default to email notification
-      if (mailerooApiKey) {
+      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
         return await sendEmailNotification(booking, user);
       } else {
-        console.warn('Email notification requested but Maileroo is not configured properly.');
+        console.warn('Email notification requested but SendGrid is not configured properly.');
         return false;
       }
     }
@@ -51,46 +54,31 @@ export async function sendBookingNotification(booking: Booking, user: any): Prom
   }
 }
 
-// Email notification using Maileroo
+// Email notification using SendGrid
 async function sendEmailNotification(booking: Booking, user: any): Promise<boolean> {
   try {
     const bookingType = booking.bookingType === 'emergency' ? 'Emergency' : 'Scheduled';
-    
-    const emailData = {
-      to: [{ email: user.email, name: `${user.firstName} ${user.lastName}` }],
-      from: { email: 'noreply@yourdomain.com', name: 'MediRush' },
+    const msg = {
+      to: user.email,
+      from: 'notifications@medirush.com', // Verified sender in SendGrid
       subject: `Your ${bookingType} Ambulance Booking Confirmation`,
       text: getPlainTextEmailContent(booking, user),
       html: getHtmlEmailContent(booking, user),
     };
 
-    const response = await fetch(mailerooApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': mailerooApiKey!,
-      },
-      body: JSON.stringify(emailData),
-    });
-
-    if (response.ok) {
-      console.log(`Email notification sent to ${user.email} via Maileroo`);
-      return true;
-    } else {
-      const errorText = await response.text();
-      console.error('Error sending email via Maileroo:', errorText);
-      return false;
-    }
+    await sgMail.send(msg);
+    console.log(`Email notification sent to ${user.email}`);
+    return true;
   } catch (error) {
     console.error('Error sending email notification:', error);
     return false;
   }
 }
 
-// SMS notification using TextBee.dev
+// SMS notification using Twilio
 async function sendSMSNotification(booking: Booking, user: any): Promise<boolean> {
-  if (!textbeeApiKey) {
-    console.error('TextBee API key not configured');
+  if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
+    console.error('Twilio client or phone number not configured');
     return false;
   }
   
@@ -98,30 +86,14 @@ async function sendSMSNotification(booking: Booking, user: any): Promise<boolean
     const bookingType = booking.bookingType === 'emergency' ? 'Emergency' : 'Scheduled';
     const messageBody = `MediRush: Your ${bookingType} ambulance booking #${booking.id} has been confirmed. Pickup: ${booking.pickupAddress}. Status: ${booking.status}. Track at: medirush.com/tracking/${booking.id}`;
     
-    const smsData = {
-      recipients: [user.phoneNumber],
-      message: messageBody,
-      sender: 'MediRush'
-    };
-
-    const response = await fetch(textbeeApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${textbeeApiKey}`,
-      },
-      body: JSON.stringify(smsData),
+    const message = await twilioClient.messages.create({
+      body: messageBody,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: user.phoneNumber
     });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`SMS notification sent to ${user.phoneNumber} via TextBee. ID: ${result.id || 'N/A'}`);
-      return true;
-    } else {
-      const errorText = await response.text();
-      console.error('Error sending SMS via TextBee:', errorText);
-      return false;
-    }
+    
+    console.log(`SMS notification sent to ${user.phoneNumber}. SID: ${message.sid}`);
+    return true;
   } catch (error) {
     console.error('Error sending SMS notification:', error);
     return false;

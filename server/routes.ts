@@ -1,14 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
 import { ambulanceTypes, hospitals, insertBookingSchema, patientDetailsSchema, emergencyContactSchema } from "@shared/schema";
 import { sendBookingNotification } from "./services/notification";
 import { z } from "zod";
-
-// WebSocket clients storage
-const wsClients = new Set<WebSocket>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -16,59 +12,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Seed initial data
   await seedInitialData();
-
-  // Driver Platform Integration APIs
-  app.post("/api/driver/updateLocation", async (req, res) => {
-    if (!req.user || req.user.role !== 'driver') {
-      return res.status(401).json({ message: "Unauthorized - Driver access required" });
-    }
-
-    try {
-      const { latitude, longitude } = req.body;
-      
-      if (!latitude || !longitude) {
-        return res.status(400).json({ message: "Latitude and longitude are required" });
-      }
-      
-      // Get driver's ambulance
-      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
-      
-      if (!ambulance) {
-        return res.status(404).json({ message: "No ambulance assigned to this driver" });
-      }
-      
-      // Update ambulance location
-      const updatedAmbulance = await storage.updateAmbulanceLocation(ambulance.id, latitude, longitude);
-      
-      res.json(updatedAmbulance);
-    } catch (error) {
-      console.error('Error updating driver location:', error);
-      res.status(500).json({ message: "Failed to update location" });
-    }
-  });
-
-  app.get("/api/driver/assigned-bookings", async (req, res) => {
-    if (!req.user || req.user.role !== 'driver') {
-      return res.status(401).json({ message: "Unauthorized - Driver access required" });
-    }
-
-    try {
-      // Get driver's ambulance
-      const ambulance = await storage.getAmbulanceByDriverId(req.user.id);
-      
-      if (!ambulance) {
-        return res.status(404).json({ message: "No ambulance assigned to this driver" });
-      }
-      
-      // Get active booking for this ambulance
-      const activeBooking = await storage.getActiveBookingByAmbulanceId(ambulance.id);
-      
-      res.json(activeBooking ? [activeBooking] : []);
-    } catch (error) {
-      console.error('Error fetching assigned bookings:', error);
-      res.status(500).json({ message: "Failed to fetch assigned bookings" });
-    }
-  });
 
   // API routes
   app.get("/api/ambulance-types", async (req, res) => {
@@ -94,15 +37,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get all hospitals and calculate distance to each
         const allHospitals = await storage.getHospitals();
         const hospitalsWithDistance = allHospitals.map(hospital => {
-          const R = 6371; // Radius of the earth in km
-          const dLat = (hospital.latitude - latitude) * (Math.PI/180);
-          const dLon = (hospital.longitude - longitude) * (Math.PI/180);
-          const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(latitude * (Math.PI/180)) * Math.cos(hospital.latitude * (Math.PI/180)) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-          const distance = R * c; // Distance in km
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            hospital.latitude,
+            hospital.longitude
+          );
           return { ...hospital, distance };
         });
         
@@ -115,7 +55,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(allHospitals);
       }
     } catch (error) {
-      console.error('Error fetching hospitals:', error);
       res.status(500).json({ message: "Failed to fetch hospitals" });
     }
   });
@@ -343,16 +282,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (activeBooking) {
           // Calculate ETA (simplified version - in a real app this would use distance/traffic info)
-          // Calculate distance to pickup location
-          const R = 6371; // Radius of the earth in km
-          const dLat = (activeBooking.pickupLatitude - latitude) * (Math.PI/180);
-          const dLon = (activeBooking.pickupLongitude - longitude) * (Math.PI/180);
-          const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(latitude * (Math.PI/180)) * Math.cos(activeBooking.pickupLatitude * (Math.PI/180)) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-          const distanceToPickup = R * c; // Distance in km
+          const distanceToPickup = calculateDistance(
+            latitude, 
+            longitude, 
+            activeBooking.pickupLatitude, 
+            activeBooking.pickupLongitude
+          );
           
           const etaInSeconds = Math.round(distanceToPickup * 60); // Simple estimation
           
@@ -438,7 +373,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
+// Helper function to calculate distance between two points (in km)
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const distance = R * c; // Distance in km
+  return distance;
+}
 
+function deg2rad(deg: number): number {
+  return deg * (Math.PI/180);
+}
 
 // Seed initial data for ambulance types and hospitals
 async function seedInitialData() {
@@ -627,5 +578,3 @@ async function seedInitialData() {
     }
   }
 }
-
-
