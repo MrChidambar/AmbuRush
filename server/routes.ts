@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
 import { ambulanceTypes, hospitals, insertBookingSchema, patientDetailsSchema, emergencyContactSchema } from "@shared/schema";
-import { sendBookingNotification } from "./services/notification";
+
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -157,16 +157,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...bookingData,
         userId: bookingData.userId || req.user!.id,
       });
-      
-      // Send booking confirmation notification
-      if (booking.status === 'confirmed' || booking.status === 'pending') {
-        try {
-          await sendBookingNotification(booking, req.user);
-        } catch (notificationError) {
-          console.error('Failed to send booking notification:', notificationError);
-          // Continue even if notification fails
-        }
-      }
       
       res.status(201).json(booking);
     } catch (error) {
@@ -347,20 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message,
       });
       
-      // If booking status changed to important state (picked up, arrived, completed)
-      // send a notification to the user
-      if (['picked_up', 'arrived', 'completed'].includes(status)) {
-        try {
-          // Get the booking user
-          const user = await storage.getUser(updatedBooking.userId);
-          if (user) {
-            await sendBookingNotification(updatedBooking, user);
-          }
-        } catch (notificationError) {
-          console.error('Failed to send status update notification:', notificationError);
-          // Continue even if notification fails
-        }
-      }
+      // Booking status has been updated successfully
       
       res.json(updatedBooking);
     } catch (error) {
