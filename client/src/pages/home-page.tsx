@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Star } from "lucide-react";
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [bookingType, setBookingType] = useState<"emergency" | "non-emergency">("emergency");
   const [view, setView] = useState<"form" | "confirmation" | "tracking">("form");
   const [bookingId, setBookingId] = useState<number | null>(null);
@@ -33,6 +34,18 @@ export default function HomePage() {
 
   const renderCurrentView = () => {
     if (view === "form") {
+      // Show login prompt if user is not authenticated
+      if (!user) {
+        return (
+          <div className="mb-8">
+            <LoginPrompt 
+              title="Login Required for Booking"
+              message="To ensure your safety and provide the best service, please log in to your account before booking an ambulance."
+            />
+          </div>
+        );
+      }
+      
       return bookingType === "emergency" ? (
         <EmergencyBookingForm onBookingComplete={handleBookingComplete} />
       ) : (

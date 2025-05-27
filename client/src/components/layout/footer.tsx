@@ -34,28 +34,28 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Services</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/services">
-                  <a className="text-gray-300 hover:text-white transition-colors">Emergency Services</a>
+                <Link href="/services" className="text-gray-300 hover:text-white transition-colors">
+                  Emergency Services
                 </Link>
               </li>
               <li>
-                <Link href="/services">
-                  <a className="text-gray-300 hover:text-white transition-colors">Non-Emergency Transport</a>
+                <Link href="/services" className="text-gray-300 hover:text-white transition-colors">
+                  Non-Emergency Transport
                 </Link>
               </li>
               <li>
-                <Link href="/services">
-                  <a className="text-gray-300 hover:text-white transition-colors">Hospital Transfers</a>
+                <Link href="/services" className="text-gray-300 hover:text-white transition-colors">
+                  Hospital Transfers
                 </Link>
               </li>
               <li>
-                <Link href="/services">
-                  <a className="text-gray-300 hover:text-white transition-colors">Event Medical Coverage</a>
+                <Link href="/services" className="text-gray-300 hover:text-white transition-colors">
+                  Event Medical Coverage
                 </Link>
               </li>
               <li>
-                <Link href="/services">
-                  <a className="text-gray-300 hover:text-white transition-colors">Pet Ambulance Services</a>
+                <Link href="/services" className="text-gray-300 hover:text-white transition-colors">
+                  Pet Ambulance Services
                 </Link>
               </li>
             </ul>
@@ -65,28 +65,28 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/">
-                  <a className="text-gray-300 hover:text-white transition-colors">About Us</a>
+                <Link href="/" className="text-gray-300 hover:text-white transition-colors">
+                  About Us
                 </Link>
               </li>
               <li>
-                <Link href="/">
-                  <a className="text-gray-300 hover:text-white transition-colors">Coverage Areas</a>
+                <Link href="/" className="text-gray-300 hover:text-white transition-colors">
+                  Coverage Areas
                 </Link>
               </li>
               <li>
-                <Link href="/">
-                  <a className="text-gray-300 hover:text-white transition-colors">Pricing</a>
+                <Link href="/" className="text-gray-300 hover:text-white transition-colors">
+                  Pricing
                 </Link>
               </li>
               <li>
-                <Link href="/">
-                  <a className="text-gray-300 hover:text-white transition-colors">FAQs</a>
+                <Link href="/" className="text-gray-300 hover:text-white transition-colors">
+                  FAQs
                 </Link>
               </li>
               <li>
-                <Link href="/">
-                  <a className="text-gray-300 hover:text-white transition-colors">Contact Us</a>
+                <Link href="/" className="text-gray-300 hover:text-white transition-colors">
+                  Contact Us
                 </Link>
               </li>
             </ul>
