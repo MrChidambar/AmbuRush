@@ -114,12 +114,12 @@ export function AppHeader() {
                       <span>Profile</span>
                     </DropdownMenuItem>
                     {user.role === "admin" && (
-                      <Link href="/admin">
-                        <DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin">
                           <LayoutDashboard className="mr-2 h-4 w-4" />
                           <span>Admin Dashboard</span>
-                        </DropdownMenuItem>
-                      </Link>
+                        </Link>
+                      </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={handleLogout}>
                       <LogOut className="mr-2 h-4 w-4" />
@@ -201,15 +201,16 @@ export function AppHeader() {
                   </div>
                 </div>
                 {user.role === "admin" && (
-                  <Link href="/admin">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Link href="/admin">
                       <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 )}
                 <Button
                   variant="outline"
@@ -224,23 +225,25 @@ export function AppHeader() {
               </div>
             ) : (
               <div className="space-y-2">
-                <Link href="/auth">
-                  <Button
-                    className="w-full"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
+                <Button
+                  asChild
+                  className="w-full"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Link href="/auth">
                     <User className="mr-2 h-4 w-4" /> Login / Register
-                  </Button>
-                </Link>
-                <Link href="/auth?admin=true">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Link href="/auth?admin=true">
                     <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Access
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             )}
           </div>
