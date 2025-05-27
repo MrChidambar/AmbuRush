@@ -52,27 +52,25 @@ export function AppHeader() {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/">
-                <a className="text-primary text-2xl font-bold font-heading flex items-center">
-                  <Ambulance className="h-6 w-6 mr-2" />
-                  MediRush
-                </a>
+              <Link href="/" className="text-primary text-2xl font-bold font-heading flex items-center">
+                <Ambulance className="h-6 w-6 mr-2" />
+                MediRush
               </Link>
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-6">
             <nav className="flex space-x-8">
               {navLinks.map((link) => (
-                <Link key={link.path} href={link.path}>
-                  <a
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      location === link.path
-                        ? "text-gray-900 dark:text-gray-100 border-b-2 border-primary"
-                        : "text-gray-500 dark:text-gray-400 hover:text-primary hover:dark:text-primary"
-                    }`}
-                  >
-                    {link.label}
-                  </a>
+                <Link 
+                  key={link.path} 
+                  href={link.path}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    location === link.path
+                      ? "text-gray-900 dark:text-gray-100 border-b-2 border-primary"
+                      : "text-gray-500 dark:text-gray-400 hover:text-primary hover:dark:text-primary"
+                  }`}
+                >
+                  {link.label}
                 </Link>
               ))}
             </nav>
@@ -174,17 +172,17 @@ export function AppHeader() {
         <div className="md:hidden p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
           <nav className="flex flex-col space-y-2">
             {navLinks.map((link) => (
-              <Link key={link.path} href={link.path}>
-                <a
-                  className={`px-3 py-2 rounded-md text-base font-medium ${
-                    location === link.path
-                      ? "text-primary bg-primary-50 dark:bg-primary-950"
-                      : "text-gray-700 dark:text-gray-300 hover:text-primary hover:dark:text-primary hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </a>
+              <Link 
+                key={link.path} 
+                href={link.path}
+                className={`px-3 py-2 rounded-md text-base font-medium ${
+                  location === link.path
+                    ? "text-primary bg-primary-50 dark:bg-primary-950"
+                    : "text-gray-700 dark:text-gray-300 hover:text-primary hover:dark:text-primary hover:bg-gray-50 dark:hover:bg-gray-800"
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {link.label}
               </Link>
             ))}
           </nav>

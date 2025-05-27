@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import { EmergencyBanner } from "@/components/booking/emergency-banner";
 import { BookingTypeSelector } from "@/components/booking/booking-type-selector";
 import { EmergencyBookingForm } from "@/components/booking/emergency-booking-form";
@@ -8,6 +9,7 @@ import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { AmbulanceTracking } from "@/components/tracking/ambulance-tracking";
 import { AppHeader } from "@/components/layout/app-header";
 import { Footer } from "@/components/layout/footer";
+import { LoginPrompt } from "@/components/login-prompt";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
