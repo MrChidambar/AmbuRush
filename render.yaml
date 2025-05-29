@@ -3,8 +3,8 @@ services:
     name: medirush-app
     env: node
     plan: free
-    buildCommand: npm install && npm run build && npm run db:push
-    startCommand: npm start
+    buildCommand: npm install && npm run build
+    startCommand: node start.js
     envVars:
       - key: NODE_ENV
         value: production
