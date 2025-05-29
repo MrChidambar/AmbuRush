@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: medirush-app
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medirush-db
+          property: connectionString
+    
+databases:
+  - name: medirush-db
+    databaseName: medirush
+    user: medirush_user
