@@ -2,7 +2,8 @@ services:
   - type: web
     name: medirush-app
     env: node
-    buildCommand: npm install && npm run build
+    plan: free
+    buildCommand: npm install && npm run build && npm run db:push
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -11,8 +12,12 @@ services:
         fromDatabase:
           name: medirush-db
           property: connectionString
-    
+      - key: SESSION_SECRET
+        generateValue: true
+    healthCheckPath: /api/user
+
 databases:
   - name: medirush-db
     databaseName: medirush
     user: medirush_user
+    plan: free
